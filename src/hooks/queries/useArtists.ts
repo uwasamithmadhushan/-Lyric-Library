@@ -5,7 +5,12 @@ import type { ArtistsQueryParams } from '@/types';
 /** Fetch all artists. */
 export const useArtists = (params?: ArtistsQueryParams) =>
   useQuery({
-    queryKey: ['artists', params?.query ?? '', params?.startsWith ?? ''],
+    queryKey: [
+      'artists',
+      params?.query ?? '',
+      params?.startsWith ?? '',
+      params?.browseAll ? 'all' : 'featured',
+    ],
     queryFn: () => lyricsRepository.getArtists(params),
   });
 

@@ -7,6 +7,11 @@ import { QueryProvider } from '@/app/providers/QueryProvider';
 import { AppNavigator } from '@/app/AppNavigator';
 import { useTheme } from '@/hooks/useTheme';
 import { useUIStore } from '@/store';
+import { MEDIA_PROXY_BUILD } from '@/services/media/mediaProxy';
+
+if (typeof console !== 'undefined') {
+  console.info(`[LyricLibrary] media ${MEDIA_PROXY_BUILD} — audio/images via /proxy only`);
+}
 
 /**
  * App root — wraps providers around the navigator.

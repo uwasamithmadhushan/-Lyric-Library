@@ -15,10 +15,6 @@ import {
   lookupArtistAlbums,
   lookupArtistsByIds,
   lookupAlbumSongs,
-  lookupArtistArtwork,
-  searchMusicArtists,
-  searchSongs,
-  searchSongsByArtistName,
   upscaleArtworkUrl,
   type ItunesAlbumResult,
   type ItunesArtistResult,
@@ -26,39 +22,17 @@ import {
 } from '@/services/itunes/itunesApi';
 import { fetchLyricsByTrack } from '@/services/lyrics/lyricsApi';
 import { plainTextToLyrics } from '@/services/lyrics/parseLyrics';
-
-/** Curated popular artists shown when browse has no search query. */
-const FEATURED_ARTIST_IDS = [
-  159260351, // Taylor Swift
-  262836961, // Adele
-  479756766, // The Weeknd
-  183313439, // Ed Sheeran
-  271256, // Drake
-  1419227, // Beyoncé
-  471744, // Coldplay
-  137057909, // Miley Cyrus
-  1065981054, // Billie Eilish
-  278873078, // Bruno Mars
-];
-
-/** Seed queries for the Songs browse screen when no search term is set. */
-const FEATURED_SONG_QUERIES = [
-  'Anti-Hero Taylor Swift',
-  'Cruel Summer Taylor Swift',
-  'Hello Adele',
-  'Easy On Me Adele',
-  'Blinding Lights The Weeknd',
-  'Save Your Tears The Weeknd',
-  'Shape of You Ed Sheeran',
-  'Flowers Miley Cyrus',
-  'As It Was Harry Styles',
-  'Levitating Dua Lipa',
-  'bad guy Billie Eilish',
-  'Peaches Justin Bieber',
-  'drivers license Olivia Rodrigo',
-  'Stay The Kid LAROI',
-  'Heat Waves Glass Animals',
-];
+import { searchDeezerArtist, searchDeezerTrack } from '@/services/deezer/deezerApi';
+import { fetchMediaJson } from '@/services/media/mediaProxy';
+import {
+  buildLocalCatalogArtists,
+  buildLocalCatalogSongs,
+  getCatalogEntry,
+  parseCatalogArtistId,
+  parseCatalogSongId,
+  toCatalogArtistId,
+  toCatalogSongId,
+} from '@/data/catalog/featuredCatalog';
 
 function yearFromIso(iso?: string): number {
   if (!iso) return 0;
@@ -66,8 +40,7 @@ function yearFromIso(iso?: string): number {
   return Number.isFinite(year) ? year : 0;
 }
 
-function mapItunesArtist(
-  artist: ItunesArtistResult,
+function mapItunesArtist(  artist: ItunesArtistResult,
   albums: Album[] = [],
   songCount = 0,
   imageUrl?: string,
@@ -109,6 +82,7 @@ function mapItunesSong(song: ItunesSongResult): Song {
     genre: song.primaryGenreName,
     popularity: 0,
     artworkUrl: upscaleArtworkUrl(song.artworkUrl100, 300),
+    previewUrl: song.previewUrl,
   };
 }
 
@@ -131,55 +105,114 @@ export class ItunesLyricsRepository implements LyricsRepository {
     return songs;
   }
 
+  private sortSongs(songs: Song[], sort?: SongSortMode): Song[] {
+    const sorted = [...songs];
+    switch (sort) {
+      case 'genre':
+        sorted.sort(
+          (a, b) =>
+            (a.genre ?? '').localeCompare(b.genre ?? '') || a.title.localeCompare(b.title),
+        );
+        break;
+      case 'recent':
+        sorted.sort(
+          (a, b) =>
+            (b.releaseYear ?? 0) - (a.releaseYear ?? 0) || a.title.localeCompare(b.title),
+        );
+        break;
+      case 'popular':
+        sorted.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+      case 'title':
+      default:
+        sorted.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+    }
+    return sorted;
+  }
+
   async getArtists(params?: ArtistsQueryParams): Promise<Artist[]> {
     const query = params?.query?.trim() ?? '';
     const startsWith = params?.startsWith?.trim() ?? '';
+    const browseAll = Boolean(params?.browseAll);
 
-    let itunesArtists: ItunesArtistResult[] = [];
-
-    if (query) {
-      itunesArtists = await searchMusicArtists(query, 30);
-    } else if (startsWith) {
-      itunesArtists = await searchMusicArtists(startsWith, 30);
-      itunesArtists = itunesArtists.filter((artist) =>
-        artist.artistName.toLowerCase().startsWith(startsWith.toLowerCase()),
-      );
-    } else {
-      itunesArtists = await lookupArtistsByIds(FEATURED_ARTIST_IDS);
-      const enriched = await Promise.all(
-        itunesArtists.map(async (artist) => {
-          try {
-            const albums = await lookupArtistAlbums(artist.artistId, 12);
-            return this.rememberArtist(
-              mapItunesArtist(artist, albums.map(mapItunesAlbum)),
-            );
-          } catch {
-            return this.rememberArtist(mapItunesArtist(artist));
-          }
-        }),
-      );
-      return enriched.sort((left, right) => left.name.localeCompare(right.name));
+    // Curated catalog list is local + instant (avoids hundreds of iTunes calls / timeouts).
+    if (browseAll || (!query && !startsWith)) {
+      const local = buildLocalCatalogArtists();
+      // Home featured: first 12; Artists browseAll: full catalog.
+      const sliced = browseAll ? local : local.slice(0, 12);
+      return sliced
+        .map((item) =>
+          this.rememberArtist({
+            id: item.id,
+            name: item.name,
+            songCount: item.songCount,
+            albums: [],
+          }),
+        )
+        .sort((left, right) => left.name.localeCompare(right.name));
     }
 
-    const artists = await Promise.all(
-      itunesArtists.map(async (artist) => {
-        try {
-          const imageUrl = await lookupArtistArtwork(artist.artistId);
-          return this.rememberArtist(mapItunesArtist(artist, [], 0, imageUrl));
-        } catch {
-          return this.rememberArtist(mapItunesArtist(artist));
-        }
-      }),
-    );
+    if (query) {
+      // Curated matches first — no live iTunes (403 in many networks).
+      const localMatches = buildLocalCatalogArtists({ query }).map((item) =>
+        this.rememberArtist({
+          id: item.id,
+          name: item.name,
+          songCount: item.songCount,
+          albums: [],
+        }),
+      );
 
-    return artists.sort((left, right) => left.name.localeCompare(right.name));
+      try {
+        const deezer = await searchDeezerArtist(query);
+        if (deezer && !localMatches.some((a) => a.name.toLowerCase() === deezer.name.toLowerCase())) {
+          localMatches.push(
+            this.rememberArtist({
+              id: toCatalogArtistId(deezer.name),
+              name: deezer.name,
+              songCount: 0,
+              albums: [],
+              imageUrl: deezer.imageUrl,
+            }),
+          );
+        }
+      } catch {
+        // ignore
+      }
+
+      return localMatches.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    // Letter filter — curated catalog only (reliable + fast).
+    return buildLocalCatalogArtists({ startsWith })
+      .map((item) =>
+        this.rememberArtist({
+          id: item.id,
+          name: item.name,
+          songCount: item.songCount,
+          albums: [],
+        }),
+      )
+      .sort((left, right) => left.name.localeCompare(right.name));
   }
 
   async getArtistById(id: string): Promise<Artist | undefined> {
+    const catalogName = parseCatalogArtistId(id);
+    if (catalogName) {
+      const entry = getCatalogEntry(catalogName);
+      // Local catalog first — never wait on iTunes for browse/detail reliability.
+      return this.rememberArtist({
+        id,
+        name: catalogName,
+        songCount: entry?.songs.length ?? 0,
+        albums: [],
+      });
+    }
+
     const numericId = id.trim();
     if (!numericId) return undefined;
 
-    // Prefer iTunes for numeric IDs (and any id that lookup understands).
     try {
       const [artists, albums] = await Promise.all([
         lookupArtistsByIds([numericId]),
@@ -217,77 +250,70 @@ export class ItunesLyricsRepository implements LyricsRepository {
       }
     }
 
-    try {
-      let tracks: ItunesSongResult[] = [];
-
-      if (normalized.query?.trim()) {
-        tracks = await searchSongs(normalized.query.trim(), 50);
-      } else if (normalized.genre?.trim()) {
-        tracks = await searchSongs(normalized.genre.trim(), 50);
-      } else {
-        const batches = await Promise.all(
-          FEATURED_SONG_QUERIES.map((term) => searchSongs(term, 3)),
-        );
-        tracks = batches.flat();
-      }
-
-      const seen = new Set<string>();
-      const mapped = tracks
-        .map(mapItunesSong)
-        .filter((song) => {
-          if (seen.has(song.id)) return false;
-          seen.add(song.id);
-          return true;
-        });
-
-      return this.sortSongs(this.rememberSongs(mapped), normalized.sort);
-    } catch {
-      return this.mock.getSongs(params);
-    }
-  }
-
-  private sortSongs(songs: Song[], sort?: SongSortMode): Song[] {
-    const sorted = [...songs];
-    switch (sort) {
-      case 'genre':
-        sorted.sort((a, b) => (a.genre ?? '').localeCompare(b.genre ?? '') || a.title.localeCompare(b.title));
-        break;
-      case 'recent':
-        sorted.sort((a, b) => (b.releaseYear ?? 0) - (a.releaseYear ?? 0) || a.title.localeCompare(b.title));
-        break;
-      case 'popular':
-        // iTunes search order is already relevance-ish; keep stable title fallback.
-        sorted.sort((a, b) => a.title.localeCompare(b.title));
-        break;
-      case 'title':
-      default:
-        sorted.sort((a, b) => a.title.localeCompare(b.title));
-        break;
-    }
-    return sorted;
+    // Default Songs tab + text/genre search against curated catalog (instant).
+    // Genre is treated as a text filter over the local catalog — no iTunes.
+    const local = buildLocalCatalogSongs({
+      query: normalized.query || normalized.genre,
+    }).map((item) =>
+      this.rememberSongs([
+        {
+          id: item.id,
+          title: item.title,
+          artistId: item.artistId,
+          artistName: item.artistName,
+        },
+      ])[0],
+    );
+    return this.sortSongs(local, normalized.sort);
   }
 
   async getSongsByArtist(artistId: string, knownName?: string): Promise<Song[]> {
-    let artistName = knownName ?? this.artistCache.get(artistId)?.name;
+    const catalogName =
+      parseCatalogArtistId(artistId) ?? knownName ?? this.artistCache.get(artistId)?.name;
+    const entry = catalogName ? getCatalogEntry(catalogName) : undefined;
 
-    if (!artistName) {
-      try {
-        const artists = await lookupArtistsByIds([artistId]);
-        artistName = artists[0]?.artistName;
-        if (artists[0]) {
-          this.rememberArtist(mapItunesArtist(artists[0]));
-        }
-      } catch {
-        artistName = undefined;
-      }
+    if (entry) {
+      return entry.songs.map((title) =>
+        this.rememberSongs([
+          {
+            id: toCatalogSongId(entry.artist, title),
+            title,
+            artistId: toCatalogArtistId(entry.artist),
+            artistName: entry.artist,
+          },
+        ])[0],
+      );
     }
 
+    const artistName = knownName ?? this.artistCache.get(artistId)?.name;
     if (artistName) {
       try {
-        const tracks = await searchSongsByArtistName(artistName, 30);
-        const ownTracks = tracks.filter((track) => String(track.artistId) === String(artistId));
-        const selected = (ownTracks.length > 0 ? ownTracks : tracks).map(mapItunesSong);
-        return this.rememberSongs(selected);
+        const payload = await fetchMediaJson<{
+          data?: Array<{
+            title?: string;
+            artist?: { name?: string };
+            preview?: string;
+            album?: { title?: string; cover_medium?: string };
+          }>;
+        }>('deezer', {
+          path: 'search',
+          q: `artist:"${artistName}"`,
+          limit: '25',
+        });
+
+        return this.rememberSongs(
+          (payload.data ?? [])
+            .filter((track) => track.title && track.artist?.name)
+            .map((track) => ({
+              id: toCatalogSongId(track.artist!.name!, track.title!),
+              title: track.title!,
+              artistId: toCatalogArtistId(track.artist!.name!),
+              artistName: track.artist!.name!,
+              previewUrl: track.preview,
+              artworkUrl: track.album?.cover_medium,
+              albumTitle: track.album?.title,
+            })),
+        );
       } catch {
         // fall through
       }
@@ -297,7 +323,54 @@ export class ItunesLyricsRepository implements LyricsRepository {
   }
 
   async getSongById(id: string): Promise<Song | undefined> {
-    return this.songCache.get(id) ?? this.mock.getSongById(id);
+    const cached = this.songCache.get(id);
+    if (cached?.previewUrl) return cached;
+
+    const catalogSong = parseCatalogSongId(id);
+    if (catalogSong) {
+      const fallback: Song = {
+        id,
+        title: catalogSong.songTitle,
+        artistId: toCatalogArtistId(catalogSong.artistName),
+        artistName: catalogSong.artistName,
+      };
+      this.rememberSongs([fallback]);
+
+      const deezer = await searchDeezerTrack(
+        catalogSong.songTitle,
+        catalogSong.artistName,
+      );
+      if (deezer?.previewUrl) {
+        return this.rememberSongs([
+          {
+            ...fallback,
+            previewUrl: deezer.previewUrl,
+            artworkUrl: deezer.artworkUrl,
+            albumTitle: deezer.albumTitle,
+          },
+        ])[0];
+      }
+
+      return fallback;
+    }
+
+    // Non-catalog ids: resolve preview via Deezer using cache/title metadata only.
+    // Do NOT call iTunes from the client (403 / CORS issues on web).
+    if (cached?.title && cached.artistName) {
+      const deezer = await searchDeezerTrack(cached.title, cached.artistName);
+      if (deezer?.previewUrl) {
+        return this.rememberSongs([
+          {
+            ...cached,
+            previewUrl: deezer.previewUrl,
+            artworkUrl: cached.artworkUrl ?? deezer.artworkUrl,
+            albumTitle: cached.albumTitle ?? deezer.albumTitle,
+          },
+        ])[0];
+      }
+    }
+
+    return cached ?? this.mock.getSongById(id);
   }
 
   async getLyrics(params: LyricsLookupParams | string) {
@@ -329,33 +402,95 @@ export class ItunesLyricsRepository implements LyricsRepository {
     const typeArray = Array.isArray(types) ? types : types ? [types] : [];
     const includeAll = typeArray.length === 0 || typeArray.includes('all');
     const wantArtists = includeAll || typeArray.includes('artist');
+    const wantSongs = includeAll || typeArray.includes('song');
 
     const results: SearchResult[] = [];
 
     if (wantArtists) {
+      buildLocalCatalogArtists({ query: q }).slice(0, 15).forEach((artist) => {
+        this.rememberArtist({
+          id: artist.id,
+          name: artist.name,
+          songCount: artist.songCount,
+          albums: [],
+        });
+        results.push({
+          id: `result-artist-${artist.id}`,
+          type: 'artist',
+          title: artist.name,
+          subtitle: 'Artist',
+          referenceId: artist.id,
+        });
+      });
+    }
+
+    if (wantSongs) {
+      buildLocalCatalogSongs({ query: q }).slice(0, 20).forEach((song) => {
+        this.rememberSongs([
+          {
+            id: song.id,
+            title: song.title,
+            artistId: song.artistId,
+            artistName: song.artistName,
+          },
+        ]);
+        results.push({
+          id: `result-song-${song.id}`,
+          type: 'song',
+          title: song.title,
+          subtitle: song.artistName,
+          referenceId: song.id,
+        });
+      });
+
+      // Extra Deezer hits for songs not in the curated catalog.
       try {
-        const artists = await searchMusicArtists(q, 15);
-        artists.forEach((artist) => {
-          const mapped = this.rememberArtist(mapItunesArtist(artist));
+        const payload = await fetchMediaJson<{
+          data?: Array<{
+            id?: number;
+            title?: string;
+            artist?: { name?: string };
+            preview?: string;
+            album?: { title?: string; cover_medium?: string };
+          }>;
+        }>('deezer', { path: 'search', q, limit: '10' });
+
+        (payload.data ?? []).forEach((track) => {
+          if (!track.id || !track.title || !track.artist?.name) return;
+          const id = toCatalogSongId(track.artist.name, track.title);
+          if (results.some((item) => item.referenceId === id)) return;
+          this.rememberSongs([
+            {
+              id,
+              title: track.title,
+              artistId: toCatalogArtistId(track.artist.name),
+              artistName: track.artist.name,
+              previewUrl: track.preview,
+              artworkUrl: track.album?.cover_medium,
+              albumTitle: track.album?.title,
+            },
+          ]);
           results.push({
-            id: `result-artist-${mapped.id}`,
-            type: 'artist',
-            title: mapped.name,
-            subtitle: artist.primaryGenreName ?? 'Artist',
-            referenceId: mapped.id,
+            id: `result-song-${id}`,
+            type: 'song',
+            title: track.title,
+            subtitle: track.artist.name,
+            referenceId: id,
           });
         });
       } catch {
-        // ignore and continue with mock results
+        // ignore
       }
     }
 
     const mockResults = await this.mock.search(query, types);
-    const withoutMockArtists = wantArtists
-      ? mockResults.filter((item) => item.type !== 'artist')
-      : mockResults;
+    const filteredMock = mockResults.filter((item) => {
+      if (wantArtists && item.type === 'artist') return false;
+      if (wantSongs && item.type === 'song') return false;
+      return true;
+    });
 
-    return [...results, ...withoutMockArtists];
+    return [...results, ...filteredMock];
   }
 }
 

@@ -1,9 +1,10 @@
 /**
  * Lightweight iTunes Search / Lookup client.
  * Docs: https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/
+ * Web traffic goes through Metro /proxy/itunes to avoid CORS / 403.
  */
 
-const ITUNES_BASE = 'https://itunes.apple.com';
+import { fetchMediaJson } from '@/services/media/mediaProxy';
 
 export interface ItunesArtistResult {
   wrapperType?: string;
@@ -41,6 +42,7 @@ export interface ItunesSongResult {
   primaryGenreName?: string;
   artworkUrl60?: string;
   artworkUrl100?: string;
+  previewUrl?: string;
 }
 
 interface ItunesListResponse<T> {
@@ -48,13 +50,22 @@ interface ItunesListResponse<T> {
   results: T[];
 }
 
-async function itunesFetch<T>(url: string): Promise<T[]> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`iTunes request failed (${response.status})`);
+async function itunesFetch<T>(
+  path: 'search' | 'lookup',
+  query: Record<string, string>,
+): Promise<T[]> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  try {
+    const data = await fetchMediaJson<ItunesListResponse<T>>(
+      'itunes',
+      { path, ...query },
+      controller.signal,
+    );
+    return data.results ?? [];
+  } finally {
+    clearTimeout(timeoutId);
   }
-  const data = (await response.json()) as ItunesListResponse<T>;
-  return data.results ?? [];
 }
 
 export async function searchMusicArtists(
@@ -64,11 +75,11 @@ export async function searchMusicArtists(
   const trimmed = term.trim();
   if (!trimmed) return [];
 
-  const url =
-    `${ITUNES_BASE}/search?term=${encodeURIComponent(trimmed)}` +
-    `&entity=musicArtist&limit=${limit}`;
-
-  const results = await itunesFetch<ItunesArtistResult>(url);
+  const results = await itunesFetch<ItunesArtistResult>('search', {
+    term: trimmed,
+    entity: 'musicArtist',
+    limit: String(limit),
+  });
   return results.filter((item) => item.artistId && item.artistName);
 }
 
@@ -78,8 +89,10 @@ export async function lookupArtistsByIds(
   const ids = artistIds.map(String).filter(Boolean);
   if (ids.length === 0) return [];
 
-  const url = `${ITUNES_BASE}/lookup?id=${ids.join(',')}&entity=musicArtist`;
-  const results = await itunesFetch<ItunesArtistResult>(url);
+  const results = await itunesFetch<ItunesArtistResult>('lookup', {
+    id: ids.join(','),
+    entity: 'musicArtist',
+  });
   return results.filter((item) => item.wrapperType === 'artist' && item.artistId);
 }
 
@@ -87,11 +100,11 @@ export async function lookupArtistAlbums(
   artistId: string | number,
   limit = 20,
 ): Promise<ItunesAlbumResult[]> {
-  const url =
-    `${ITUNES_BASE}/lookup?id=${encodeURIComponent(String(artistId))}` +
-    `&entity=album&limit=${limit}`;
-
-  const results = await itunesFetch<ItunesAlbumResult | ItunesArtistResult>(url);
+  const results = await itunesFetch<ItunesAlbumResult | ItunesArtistResult>('lookup', {
+    id: String(artistId),
+    entity: 'album',
+    limit: String(limit),
+  });
   return results.filter(
     (item): item is ItunesAlbumResult =>
       'collectionId' in item && item.wrapperType === 'collection',
@@ -105,11 +118,11 @@ export async function searchSongs(
   const trimmed = term.trim();
   if (!trimmed) return [];
 
-  const url =
-    `${ITUNES_BASE}/search?term=${encodeURIComponent(trimmed)}` +
-    `&entity=song&limit=${limit}`;
-
-  const results = await itunesFetch<ItunesSongResult>(url);
+  const results = await itunesFetch<ItunesSongResult>('search', {
+    term: trimmed,
+    entity: 'song',
+    limit: String(limit),
+  });
   return results.filter((item) => item.trackId && item.trackName && item.artistName);
 }
 
@@ -120,11 +133,12 @@ export async function searchSongsByArtistName(
   const trimmed = artistName.trim();
   if (!trimmed) return [];
 
-  const url =
-    `${ITUNES_BASE}/search?term=${encodeURIComponent(trimmed)}` +
-    `&entity=song&attribute=artistTerm&limit=${limit}`;
-
-  const results = await itunesFetch<ItunesSongResult>(url);
+  const results = await itunesFetch<ItunesSongResult>('search', {
+    term: trimmed,
+    entity: 'song',
+    attribute: 'artistTerm',
+    limit: String(limit),
+  });
   return results.filter((item) => item.trackId && item.trackName);
 }
 
@@ -132,14 +146,24 @@ export async function lookupAlbumSongs(
   albumId: string | number,
   limit = 50,
 ): Promise<ItunesSongResult[]> {
-  const url =
-    `${ITUNES_BASE}/lookup?id=${encodeURIComponent(String(albumId))}` +
-    `&entity=song&limit=${limit}`;
-
-  const results = await itunesFetch<ItunesSongResult | ItunesAlbumResult>(url);
+  const results = await itunesFetch<ItunesSongResult | ItunesAlbumResult>('lookup', {
+    id: String(albumId),
+    entity: 'song',
+    limit: String(limit),
+  });
   return results.filter(
     (item): item is ItunesSongResult => 'trackId' in item && item.kind === 'song',
   );
+}
+
+export async function lookupSongById(
+  trackId: string | number,
+): Promise<ItunesSongResult | undefined> {
+  const results = await itunesFetch<ItunesSongResult>('lookup', {
+    id: String(trackId),
+    entity: 'song',
+  });
+  return results.find((item) => item.kind === 'song' && item.trackId);
 }
 
 /** iTunes artist payloads have no image — use album/song artwork instead. */
@@ -153,4 +177,48 @@ export async function lookupArtistArtwork(
 ): Promise<string | undefined> {
   const albums = await lookupArtistAlbums(artistId, 1);
   return upscaleArtworkUrl(albums[0]?.artworkUrl100, 300);
+}
+
+/** Artwork + rough song count from recent albums (for grid cards). */
+export async function enrichArtistMedia(
+  artistId: string | number,
+  artistName?: string,
+): Promise<{ imageUrl?: string; songCount: number }> {
+  let resolvedId: string | number = artistId;
+  const idText = String(artistId);
+  const needsNameLookup =
+    idText.startsWith('cat-artist:') || !/^\d+$/.test(idText);
+
+  if (needsNameLookup) {
+    const name =
+      artistName?.trim() ||
+      (idText.startsWith('cat-artist:')
+        ? decodeURIComponent(idText.slice('cat-artist:'.length))
+        : '');
+    if (!name) return { songCount: 0 };
+    const matches = await searchMusicArtists(name, 5);
+    const normalized = name.toLowerCase();
+    const best =
+      matches.find((artist) => artist.artistName.trim().toLowerCase() === normalized) ??
+      matches.find((artist) => artist.artistName.trim().toLowerCase().includes(normalized)) ??
+      matches[0];
+    if (!best) return { songCount: 0 };
+    resolvedId = best.artistId;
+  }
+
+  const albums = await lookupArtistAlbums(resolvedId, 10);
+  const imageUrl = upscaleArtworkUrl(albums[0]?.artworkUrl100, 300);
+  const songCount = albums.reduce((sum, album) => sum + (album.trackCount ?? 0), 0);
+  return { imageUrl, songCount };
+}
+
+/** Drop junk iTunes hits from single-letter searches (punctuation "artists", etc.). */
+export function isDisplayableArtist(artist: ItunesArtistResult): boolean {
+  const name = artist.artistName?.trim() ?? '';
+  if (!artist.artistId || name.length < 2 || name.length > 64) return false;
+  if (artist.artistType && artist.artistType !== 'Artist') return false;
+  if (!artist.primaryGenreName) return false;
+  if (!/^[A-Za-z0-9]/.test(name)) return false;
+  if (!/[A-Za-z]{2,}/.test(name)) return false;
+  return true;
 }

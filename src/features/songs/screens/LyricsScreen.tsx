@@ -2,21 +2,27 @@ import React, { useEffect } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { AppScreen, AppText, LoadingState, ErrorState, EmptyState } from '@/components';
 import { addRecentlyViewed } from '@/store/localState';
-import { useLyrics } from '@/hooks';
+import { useLyrics, useSongById } from '@/hooks';
 import { radii, spacing } from '@/theme';
 import { useTheme } from '@/hooks/useTheme';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { SongsStackParamList } from '@/app/navigationTypes';
+import { SongPlayer } from '../components/SongPlayer';
 
 type Props = NativeStackScreenProps<SongsStackParamList, 'Lyrics'>;
 
 /**
- * Lyrics Display Screen — loads lyrics from LRCLIB / lyrics.ovh via repository.
+ * Lyrics Display Screen — now-playing player + lyrics from APIs.
  */
 export default function LyricsScreen({ route }: Readonly<Props>) {
   const { colors } = useTheme();
   const { songId, songTitle, artistName } = route.params;
   const { data: lyrics, isLoading, isError, refetch, isFetching } = useLyrics(
+    songId,
+    songTitle,
+    artistName,
+  );
+  const { data: song, isLoading: isSongLoading } = useSongById(
     songId,
     songTitle,
     artistName,
@@ -61,18 +67,14 @@ export default function LyricsScreen({ route }: Readonly<Props>) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        <View style={[styles.heroCard, { backgroundColor: colors.primary }]}>
-          <AppText variant="pageSubtitle" color={colors.white}>
-            Lyrics
-          </AppText>
-          <AppText variant="pageTitle" color={colors.white} style={styles.heroTitle}>
-            {lyrics.songTitle || songTitle}
-          </AppText>
-          <AppText variant="itemMeta" color={colors.white}>
-            {lyrics.artistName || artistName}
-            {lyrics.albumTitle ? ` · ${lyrics.albumTitle}` : ''}
-          </AppText>
-        </View>
+        <SongPlayer
+          title={lyrics.songTitle || songTitle}
+          artistName={lyrics.artistName || artistName}
+          albumTitle={lyrics.albumTitle || song?.albumTitle}
+          artworkUrl={song?.artworkUrl}
+          previewUrl={song?.previewUrl}
+          isTrackLoading={isSongLoading}
+        />
 
         {lyrics.sections.map((section) => (
           <View
@@ -112,16 +114,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.massive,
     gap: spacing.lg,
-  },
-  heroCard: {
-    padding: spacing.xl,
-    borderRadius: radii.lg,
-    minHeight: 140,
-    justifyContent: 'flex-end',
-  },
-  heroTitle: {
-    marginTop: spacing.xs,
-    marginBottom: spacing.xs,
   },
   lyricsCard: {
     borderRadius: radii.lg,

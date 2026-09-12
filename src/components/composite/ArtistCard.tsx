@@ -47,6 +47,10 @@ export const ArtistCard = memo(function ArtistCard({
   const [imageFailed, setImageFailed] = useState(false);
   const showImage = Boolean(imageUrl) && !imageFailed;
 
+  React.useEffect(() => {
+    setImageFailed(false);
+  }, [imageUrl]);
+
   return (
     <View style={styles.wrapper}>
       <Pressable

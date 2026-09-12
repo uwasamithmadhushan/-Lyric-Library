@@ -23,3 +23,36 @@ export const useSongsByArtist = (artistId: string) =>
     queryFn: () => lyricsRepository.getSongsByArtist(artistId),
     enabled: !!artistId,
   });
+
+/** Fetch a single song (includes previewUrl when available). */
+export const useSongById = (
+  songId: string,
+  songTitle?: string,
+  artistName?: string,
+) =>
+  useQuery({
+    queryKey: ['songs', 'by-id', songId, songTitle ?? '', artistName ?? ''],
+    queryFn: async () => {
+      const song = await lyricsRepository.getSongById(songId);
+      if (song?.previewUrl) return song;
+
+      // Fallback resolve by title/artist (covers legacy ids + missing previews).
+      if (songTitle && artistName) {
+        const { searchDeezerTrack } = await import('@/services/deezer/deezerApi');
+        const deezer = await searchDeezerTrack(songTitle, artistName);
+        if (!deezer?.previewUrl) return song;
+        return {
+          id: songId,
+          title: songTitle,
+          artistId: song?.artistId ?? '',
+          artistName,
+          previewUrl: deezer.previewUrl,
+          artworkUrl: song?.artworkUrl ?? deezer.artworkUrl,
+          albumTitle: song?.albumTitle ?? deezer.albumTitle,
+        };
+      }
+
+      return song;
+    },
+    enabled: !!songId,
+  });

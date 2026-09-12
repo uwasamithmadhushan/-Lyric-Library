@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, FlatList, Pressable, useWindowDimensions } from 'react-native';
 import { AppScreen, AppText, AppSearchBar, ArtistCard, Chip } from '@/components';
 import { spacing, radii } from '@/theme';
@@ -7,16 +7,18 @@ import { useArtists } from '@/hooks';
 import type { RootTabParamList } from '@/app/navigationTypes';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { HOME_FEATURED_SONGS, toCatalogSongId, mapPool } from '@/data/catalog/featuredCatalog';
 import { getRecentlyViewed, getFavorites } from '@/store/localState';
+import { enrichArtistImage } from '@/services/deezer/deezerApi';
+import type { Artist } from '@/types';
 
-const FEATURED = [
-  { id: 's1', title: 'Anti-Hero', artist: 'Taylor Swift' },
-  { id: 's2', title: 'Cruel Summer', artist: 'Taylor Swift' },
-  { id: 's3', title: 'Flowers', artist: 'Miley Cyrus' },
-  { id: 's4', title: 'Someone Like You', artist: 'Adele' },
-];
+const FEATURED = HOME_FEATURED_SONGS.map((item) => ({
+  id: toCatalogSongId(item.artist, item.title),
+  title: item.title,
+  artist: item.artist,
+}));
 
-const GENRES = ['Pop', 'Rock', 'Hip Hop', 'R&B', 'Country', 'Jazz'];
+const GENRES = ['Pop', 'Rock', 'Hip Hop', 'R&B', 'Country', 'Jazz', 'K-Pop', 'Latin'];
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -25,6 +27,30 @@ export default function HomeScreen() {
   const [favorites, setFavorites] = useState(() => getFavorites().slice(0, 5));
   const [query, setQuery] = useState('');
   const { data: popularArtists = [] } = useArtists();
+  const [homeArtists, setHomeArtists] = useState<Artist[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const base = popularArtists.slice(0, 8);
+    setHomeArtists(base);
+
+    (async () => {
+      const enriched = await mapPool(base, 4, async (artist) => {
+        if (artist.imageUrl) return artist;
+        try {
+          const media = await enrichArtistImage(artist.name);
+          return media.imageUrl ? { ...artist, imageUrl: media.imageUrl } : artist;
+        } catch {
+          return artist;
+        }
+      });
+      if (!cancelled) setHomeArtists(enriched);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [popularArtists]);
 
   useFocusEffect(
     useCallback(() => {
@@ -48,10 +74,10 @@ export default function HomeScreen() {
   }, [normalizedQuery]);
 
   const filteredArtists = useMemo(() => {
-    const artists = popularArtists.slice(0, 8);
+    const artists = homeArtists.length > 0 ? homeArtists : popularArtists.slice(0, 8);
     if (!normalizedQuery) return artists;
     return artists.filter((item) => item.name.toLowerCase().includes(normalizedQuery));
-  }, [normalizedQuery, popularArtists]);
+  }, [normalizedQuery, homeArtists, popularArtists]);
 
   const filteredGenres = useMemo(() => {
     if (!normalizedQuery) return GENRES;

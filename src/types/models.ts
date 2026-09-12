@@ -33,6 +33,8 @@ export interface Song {
   genre?: string;
   popularity?: number;
   artworkUrl?: string;
+  /** iTunes 30s preview stream URL */
+  previewUrl?: string;
 }
 
 export interface LyricsSection {
@@ -76,6 +78,8 @@ export interface SearchResult {
 export interface ArtistsQueryParams {
   query?: string;
   startsWith?: string;
+  /** Load a larger A–Z catalog (Artists browse), not just featured artists */
+  browseAll?: boolean;
 }
 
 export interface SongsQueryParams {

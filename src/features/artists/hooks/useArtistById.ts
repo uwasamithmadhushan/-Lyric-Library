@@ -34,13 +34,14 @@ async function fetchArtistById(artistId: string): Promise<Artist> {
     lyricsRepository.getSongsByArtist(artistId),
   ]);
 
+  // Catalog artists always resolve locally even if iTunes enrichment failed.
   if (!artistData) {
     throw new Error(`Artist with id "${artistId}" not found`);
   }
 
   const popularSongs: Song[] = [...artistSongs]
     .sort((left, right) => (right.popularity ?? 0) - (left.popularity ?? 0))
-    .slice(0, 5)
+    .slice(0, 8)
     .map((song) => ({
       id: song.id,
       title: song.title,
@@ -60,7 +61,7 @@ async function fetchArtistById(artistId: string): Promise<Artist> {
   return {
     id: artistData.id,
     name: artistData.name,
-    songCount: artistData.songCount,
+    songCount: artistData.songCount || popularSongs.length,
     popularSongs,
     albums,
     imageUrl: artistData.imageUrl,

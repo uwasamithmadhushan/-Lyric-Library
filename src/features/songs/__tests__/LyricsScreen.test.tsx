@@ -26,6 +26,35 @@ jest.mock('@/store/localState', () => ({
   addRecentlyViewed: jest.fn(),
 }));
 
+jest.mock('expo-av', () => ({
+  Audio: {
+    setAudioModeAsync: jest.fn(async () => undefined),
+    Sound: {
+      createAsync: jest.fn(async () => ({
+        sound: {
+          getStatusAsync: jest.fn(async () => ({ isLoaded: true, isPlaying: false })),
+          playAsync: jest.fn(async () => undefined),
+          pauseAsync: jest.fn(async () => undefined),
+          unloadAsync: jest.fn(async () => undefined),
+          setPositionAsync: jest.fn(async () => undefined),
+        },
+      })),
+    },
+  },
+}));
+
+jest.mock('expo-linear-gradient', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { View } = require('react-native');
+  return {
+    LinearGradient: ({ children }: { children: React.ReactNode }) => <View>{children}</View>,
+  };
+});
+
+jest.mock('@expo/vector-icons', () => ({
+  Feather: () => null,
+}));
+
 jest.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
@@ -34,6 +63,8 @@ jest.mock('@/hooks/useTheme', () => ({
       bgElevated: '#FFFFFF',
       border: '#E5E7EB',
       textSecondary: '#6B7280',
+      textTertiary: '#9CA3AF',
+      error: '#DC2626',
     },
   }),
 }));
@@ -56,6 +87,15 @@ jest.mock('@/hooks', () => ({
     isFetching: false,
     isError: false,
     refetch: jest.fn(),
+  }),
+  useSongById: () => ({
+    data: {
+      id: '1',
+      title: 'Hello',
+      artistId: '2',
+      artistName: 'Adele',
+      previewUrl: 'https://example.com/preview.m4a',
+    },
   }),
 }));
 
