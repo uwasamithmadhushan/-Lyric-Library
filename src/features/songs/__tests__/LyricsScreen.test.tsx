@@ -1,16 +1,36 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import type { RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { SongsStackParamList } from '@/app/navigationTypes';
 
-jest.mock('@/components', () => ({
-  AppScreen: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  AppText: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  AppButton: ({ label }: { label: string }) => <>{label}</>,
+jest.mock('@/components', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { Text, View } = require('react-native');
+  return {
+    AppScreen: ({ children }: { children: React.ReactNode }) => <View>{children}</View>,
+    AppText: ({ children }: { children: React.ReactNode }) => <Text>{children}</Text>,
+    AppButton: ({ label }: { label: string }) => <Text>{label}</Text>,
+  };
+});
+
+jest.mock('@/store/localState', () => ({
+  addRecentlyViewed: jest.fn(),
+}));
+
+jest.mock('@/hooks/useTheme', () => ({
+  useTheme: () => ({
+    colors: {
+      primary: '#2563EB',
+      white: '#FFFFFF',
+      bgElevated: '#FFFFFF',
+      border: '#E5E7EB',
+      textSecondary: '#6B7280',
+    },
+  }),
 }));
 
 import LyricsScreen from '@/features/songs/screens/LyricsScreen';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 describe('LyricsScreen', () => {
   it('renders the Anti-Hero lyric page', () => {
@@ -18,12 +38,12 @@ describe('LyricsScreen', () => {
       key: 'test',
       name: 'Lyrics',
       params: { songId: 'anti-hero', songTitle: 'Anti-Hero', artistName: 'Taylor Swift' },
-    } as RouteProp<SongsStackParamList, 'Lyrics'>;
+    };
 
     const mockNav = {} as unknown as NativeStackNavigationProp<SongsStackParamList, 'Lyrics'>;
     const { getByText } = render(<LyricsScreen route={mockRoute} navigation={mockNav} />);
 
-    expect(getByText((text) => String(text).includes('Anti-Hero'))).toBeTruthy();
-    expect(getByText((text) => String(text).includes("I'm the problem"))).toBeTruthy();
+    expect(getByText('Anti-Hero')).toBeTruthy();
+    expect(getByText(/I'm the problem/)).toBeTruthy();
   });
 });

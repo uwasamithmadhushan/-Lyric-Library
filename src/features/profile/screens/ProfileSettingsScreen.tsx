@@ -75,19 +75,16 @@ export default function ProfileSettingsScreen() {
               label="Small"
               active={textSize === 'small'}
               onPress={() => setTextSize('small')}
-              palette={palette}
             />
             <ChoiceChip
               label="Medium"
               active={textSize === 'medium'}
               onPress={() => setTextSize('medium')}
-              palette={palette}
             />
             <ChoiceChip
               label="Large"
               active={textSize === 'large'}
               onPress={() => setTextSize('large')}
-              palette={palette}
             />
           </View>
 
@@ -99,13 +96,11 @@ export default function ProfileSettingsScreen() {
               label="Compact"
               active={lineSpacing === 'compact'}
               onPress={() => setLineSpacing('compact')}
-              palette={palette}
             />
             <ChoiceChip
               label="Comfortable"
               active={lineSpacing === 'comfortable'}
               onPress={() => setLineSpacing('comfortable')}
-              palette={palette}
             />
           </View>
 
@@ -167,30 +162,26 @@ interface ChoiceChipProps {
   label: string;
   active: boolean;
   onPress: () => void;
-  palette: {
-    card: string;
-    border: string;
-    text: string;
-    muted: string;
-    subtext: string;
-    chip: string;
-  };
 }
 
-function ChoiceChip({ label, active, onPress, palette }: Readonly<ChoiceChipProps>) {
+function ChoiceChip({ label, active, onPress }: Readonly<ChoiceChipProps>) {
+  const { colors: palette } = useTheme();
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
         styles.chip,
-        { backgroundColor: active ? colors.primary : palette.chip, borderColor: active ? colors.primary : palette.border },
+        {
+          backgroundColor: active ? colors.primary : palette.bgSecondary,
+          borderColor: active ? colors.primary : palette.border,
+        },
         active && styles.chipActive,
         pressed && styles.chipPressed,
       ]}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
     >
-      <AppText variant="chipLabel" color={active ? colors.white : palette.text}>
+      <AppText variant="chipLabel" color={active ? colors.white : palette.textPrimary}>
         {label}
       </AppText>
     </Pressable>

@@ -144,7 +144,7 @@ export default function HomeScreen() {
         <Section title="Browse by Genre">
           <View style={styles.genreRow}>
             {filteredGenres.map((g) => (
-              <Chip key={g} label={g} onPress={() => navigation.navigate('SearchTab')} />
+              <Chip key={g} label={g} onPress={() => navigation.navigate('SearchTab', { screen: 'SearchMain' })} />
             ))}
           </View>
         </Section>

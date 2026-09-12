@@ -68,10 +68,7 @@ export type RootTabParamList = {
   SongsTab: NavigatorScreenParams<SongsStackParamList>;
   SearchTab: NavigatorScreenParams<SearchStackParamList>;
   SavedTab: NavigatorScreenParams<SavedStackParamList>;
-  ProfileTab: NavigatorScreenParams<ProfileStackParamList>;
-  SongsTab:   NavigatorScreenParams<SongsStackParamList>;
-  SearchTab:  NavigatorScreenParams<SearchStackParamList>;
-  SavedTab:   NavigatorScreenParams<SavedStackParamList>;
+  ProfileTab: undefined;
 };
 
 // ─── Convenience types ──────────────────────────────────────────
@@ -81,4 +78,5 @@ export type AllRouteNames =
   | keyof SongsStackParamList
   | keyof SearchStackParamList
   | keyof SavedStackParamList
+  | keyof HomeStackParamList
   | keyof RootTabParamList;

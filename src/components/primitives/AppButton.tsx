@@ -40,7 +40,7 @@ export function AppButton({
   const isDisabled = disabled || loading;
   const [focused, setFocused] = useState(false);
 
-  let backgroundColor = colors.transparent;
+  let backgroundColor: string = colors.transparent;
   if (variant === 'primary') {
     backgroundColor = colors.primary;
   } else if (variant === 'secondary') {

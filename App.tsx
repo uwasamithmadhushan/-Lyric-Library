@@ -16,13 +16,23 @@ export default function App() {
   const { colors } = useTheme();
   const themeMode = useUIStore((state) => state.themeMode);
   const isDark = themeMode === 'dark';
+  const navigationTheme = {
+    ...(isDark ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(isDark ? DarkTheme.colors : DefaultTheme.colors),
+      background: colors.bgPrimary,
+      card: colors.bgElevated,
+      text: colors.textPrimary,
+      border: colors.border,
+      primary: colors.primary,
+      notification: colors.accent,
+    },
+  };
 
   return (
     <SafeAreaProvider>
       <QueryProvider>
-        <NavigationContainer
-          theme={isDark ? { ...DarkTheme, colors: { ...DarkTheme.colors, background: colors.bgPrimary, card: colors.bgElevated, text: colors.textPrimary, border: colors.border, primary: colors.primary, notification: colors.accent } } : { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: colors.bgPrimary, card: colors.bgElevated, text: colors.textPrimary, border: colors.border, primary: colors.primary, notification: colors.accent } }}
-        >
+        <NavigationContainer theme={navigationTheme}>
           <StatusBar style={isDark ? 'light' : 'dark'} backgroundColor={colors.bgPrimary} />
           <AppNavigator />
         </NavigationContainer>

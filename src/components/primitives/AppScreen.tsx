@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing } from '@/theme';
 import { useTheme } from '@/hooks/useTheme';
@@ -11,7 +11,7 @@ interface AppScreenProps {
   /** Add horizontal padding (default: true) */
   padded?: boolean;
   /** Additional styles */
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 /**
