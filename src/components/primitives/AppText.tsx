@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, TextProps, TextStyle } from 'react-native';
-import { colors, textVariants, TextVariant } from '@/theme';
+import { colors as lightColors, textVariants, TextVariant } from '@/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 interface AppTextProps extends TextProps {
   /** Typography variant — see theme/typography.ts for available variants */
@@ -28,9 +29,10 @@ export function AppText({
   children,
   ...rest
 }: AppTextProps) {
+  const { colors } = useTheme();
   const variantStyle = textVariants[variant];
 
-  const resolvedColor = color ?? getDefaultColor(variant);
+  const resolvedColor = color ?? getDefaultColor(variant, colors);
 
   const composedStyle: TextStyle = {
     ...variantStyle,
@@ -39,24 +41,30 @@ export function AppText({
   };
 
   return (
-    <Text style={[composedStyle, style]} {...rest}>
+    <Text
+      style={[composedStyle, style]}
+      accessibilityRole={variant === 'pageTitle' ? 'header' : undefined}
+      {...rest}
+    >
       {children}
     </Text>
   );
 }
 
 /** Maps certain variants to appropriate default colors */
-function getDefaultColor(variant: TextVariant): string {
+type PaletteColors = typeof lightColors;
+
+function getDefaultColor(variant: TextVariant, palette: PaletteColors): string {
   switch (variant) {
     case 'itemMeta':
     case 'cardCaption':
     case 'verseLabel':
     case 'sectionHeader':
     case 'preview':
-      return colors.textTertiary;
+      return palette.textTertiary;
     case 'pageSubtitle':
-      return colors.textSecondary;
+      return palette.textSecondary;
     default:
-      return colors.textPrimary;
+      return palette.textPrimary;
   }
 }

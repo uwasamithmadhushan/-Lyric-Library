@@ -1,12 +1,14 @@
 import React from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
-import { colors, spacing } from '@/theme';
+import { spacing, shadows } from '@/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { AppText } from '../primitives/AppText';
 import { AppButton } from '../primitives/AppButton';
 
 // ─── Loading State ───────────────────────────────────────────────
 
 export function LoadingState({ message = 'Loading...' }: Readonly<{ message?: string }>) {
+  const { colors } = useTheme();
   return (
     <View style={styles.center}>
       <ActivityIndicator size="large" color={colors.primary} />
@@ -77,5 +79,6 @@ const styles = StyleSheet.create({
   },
   retryBtn: {
     marginTop: spacing.xxl,
+    ...shadows.card,
   },
 });

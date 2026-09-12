@@ -1,13 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, SectionList, useWindowDimensions, Platform, FlatList } from 'react-native';
 import { AppScreen, AppText, AppSearchBar, Chip, SongRow, LoadingState, EmptyState } from '@/components';
+import { addFavorite, removeFavorite, isFavorited } from '@/store/localState';
 import { useSongs } from '@/hooks/queries/useSongs';
 import { groupByInitial } from '@/utils/groupers';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { SongsStackParamList } from '@/app/navigationTypes';
-import type { SongSortMode } from '@/types';
-import { colors, spacing } from '@/theme';
+import type { SongSortMode, Song } from '@/types';
+import { spacing } from '@/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 /**
  * Songs Browse Screen.
@@ -40,6 +42,7 @@ const SORT_OPTIONS: { key: SongSortKey; label: string }[] = [
  * - Loading/empty states
  */
 export default function SongsScreen() {
+  const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<SongsStackParamList>>();
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 375;
@@ -51,19 +54,15 @@ export default function SongsScreen() {
 
   // Filter and group songs
   const filteredSongs = useMemo(() => songs ?? [], [songs]);
-  // groupByInitial expects T extends Record<string, string>, but Song has optional string fields. We'll cast for grouping by title.
+  // group songs by first letter while preserving the original Song object so we can act on favorites
   const grouped = useMemo(() => {
-    if (!filteredSongs.length) return [];
-    // groupByInitial expects Record<string, string>[]; map Song to { id, title, artistName }
-    const stringSongs = filteredSongs.map(s => ({
-      id: s.id,
-      title: s.title || '',
-      artistName: s.artistName || '',
-    }));
-    const groupedObj = groupByInitial(stringSongs, 'title');
+    if (!filteredSongs.length) return [] as { title: string; data: Song[] }[];
+    // ensure title is string for grouping
+    const prepared: Song[] = filteredSongs.map((s: Song) => ({ ...s, title: s.title || '' }));
+    const groupedObj = groupByInitial(prepared as unknown as Array<Record<string, string>>, 'title');
     return Object.keys(groupedObj)
       .sort((a, b) => a.localeCompare(b))
-      .map(letter => ({ title: letter, data: groupedObj[letter] }));
+      .map((letter) => ({ title: letter, data: groupedObj[letter] as unknown as Song[] }));
   }, [filteredSongs]);
 
   return (
@@ -114,14 +113,29 @@ export default function SongsScreen() {
           sections={grouped}
           keyExtractor={item => item.id}
           renderSectionHeader={({ section: { title } }) => (
-            <View style={styles.sectionHeaderContainer}>
-              <AppText variant="sectionHeader" style={styles.sectionHeader}>{title}</AppText>
+            <View style={[styles.sectionHeaderContainer, { backgroundColor: colors.bgPrimary }]}>
+              <AppText variant="sectionHeader" color={colors.textTertiary} style={styles.sectionHeader}>{title}</AppText>
             </View>
           )}
           renderItem={({ item }) => (
             <SongRow
               title={item.title}
               meta={item.artistName}
+              favorited={isFavorited(item.id)}
+              onFavoriteToggle={() => {
+                if (isFavorited(item.id)) removeFavorite(item.id);
+                else addFavorite({
+                  id: item.id,
+                  title: item.title,
+                  artistId: item.artistId ?? '',
+                  artistName: item.artistName ?? '',
+                  albumId: item.albumId,
+                  albumTitle: item.albumTitle,
+                  releaseYear: item.releaseYear,
+                  genre: item.genre,
+                  popularity: item.popularity,
+                });
+              }}
               onPress={() => navigation.navigate('Lyrics', {
                 songId: item.id,
                 songTitle: item.title,
@@ -178,7 +192,6 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
   sectionHeaderContainer: {
-    backgroundColor: colors.bgPrimary,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xs,
     zIndex: 2,

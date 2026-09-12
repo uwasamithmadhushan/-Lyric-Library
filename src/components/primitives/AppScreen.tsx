@@ -1,7 +1,8 @@
 import React, { ReactNode } from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing } from '@/theme';
+import { spacing } from '@/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 interface AppScreenProps {
   children: ReactNode;
@@ -23,16 +24,17 @@ interface AppScreenProps {
  */
 export function AppScreen({
   children,
-  backgroundColor = colors.bgPrimary,
+  backgroundColor,
   padded = true,
   style,
 }: Readonly<AppScreenProps>) {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const dynamicStyles = StyleSheet.create({
     container: {
-      backgroundColor,
-      paddingTop: insets.top + spacing.sm,
-      paddingBottom: insets.bottom,
+      backgroundColor: backgroundColor ?? colors.bgPrimary,
+      paddingTop: insets.top + spacing.md,
+      paddingBottom: insets.bottom + spacing.md,
     },
   });
 

@@ -1,7 +1,8 @@
 import React from 'react';
 import { Pressable, StyleSheet, ViewStyle } from 'react-native';
-import { colors, spacing, radii } from '@/theme';
+import { spacing, radii } from '@/theme';
 import { AppText } from './AppText';
+import { useTheme } from '@/hooks/useTheme';
 
 interface ChipProps {
   /** Chip label */
@@ -22,12 +23,13 @@ interface ChipProps {
  *   <Chip label="A-Z" active={sort === 'a-z'} onPress={() => setSort('a-z')} />
  */
 export function Chip({ label, active = false, onPress, style }: Readonly<ChipProps>) {
+  const { colors } = useTheme();
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
         styles.base,
-        active ? styles.active : styles.inactive,
+        { backgroundColor: active ? colors.primary : colors.bgElevated, borderColor: active ? colors.primary : colors.border },
         pressed && styles.pressed,
         style,
       ]}
@@ -47,22 +49,14 @@ export function Chip({ label, active = false, onPress, style }: Readonly<ChipPro
 
 const styles = StyleSheet.create({
   base: {
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
     paddingHorizontal: spacing.lg,
     borderRadius: radii.pill,
-    borderWidth: 2,
-    minWidth: 72,
-    minHeight: 40,
+    borderWidth: 1,
+    minWidth: 64,
+    minHeight: 36,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  active: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  inactive: {
-    backgroundColor: colors.bgElevated,
-    borderColor: colors.border,
   },
   pressed: {
     opacity: 0.85,

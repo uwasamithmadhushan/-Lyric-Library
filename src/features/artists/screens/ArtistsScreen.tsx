@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AppScreen, AppText, AppSearchBar, Chip, ArtistCard } from '@/components';
@@ -25,6 +25,8 @@ const FILTER_OPTIONS = ALPHABET;
  *  - Navigation to ArtistDetail screen
  */
 export default function ArtistsScreen({ navigation }: Readonly<Props>) {
+  const { width } = useWindowDimensions();
+  const numColumns = width >= 1200 ? 5 : width >= 900 ? 4 : width >= 600 ? 3 : 2;
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLetter, setSelectedLetter] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -127,7 +129,7 @@ export default function ArtistsScreen({ navigation }: Readonly<Props>) {
             data={artists}
             renderItem={renderArtistCard}
             estimatedItemSize={180}
-            numColumns={3}
+            numColumns={numColumns}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
           />

@@ -21,6 +21,33 @@ export type SongsStackParamList = {
   Lyrics: { songId: string; songTitle: string; artistName: string };
 };
 
+export type HomeStackParamList = {
+  HomeMain: undefined;
+  Lyrics: { songId: string; songTitle: string; artistName: string };
+};
+
+export type GenresStackParamList = {
+  GenresMain: undefined;
+  GenreDetail: { genre: string };
+};
+
+export type PlaylistsStackParamList = {
+  PlaylistsMain: undefined;
+  PlaylistDetail: { playlistId: string };
+};
+
+export type RecentlyStackParamList = {
+  RecentlyMain: undefined;
+};
+
+export type FavoritesStackParamList = {
+  FavoritesMain: undefined;
+};
+
+export type ProfileStackParamList = {
+  ProfileMain: undefined;
+};
+
 export type SearchStackParamList = {
   SearchMain: undefined;
   ArtistDetail: { artistId: string; artistName: string };
@@ -35,10 +62,12 @@ export type SavedStackParamList = {
 // ─── Root Tab Param List ────────────────────────────────────────
 
 export type RootTabParamList = {
+  HomeTab: NavigatorScreenParams<HomeStackParamList>;
   ArtistsTab: NavigatorScreenParams<ArtistsStackParamList>;
   SongsTab: NavigatorScreenParams<SongsStackParamList>;
   SearchTab: NavigatorScreenParams<SearchStackParamList>;
   SavedTab: NavigatorScreenParams<SavedStackParamList>;
+  ProfileTab: NavigatorScreenParams<ProfileStackParamList>;
 };
 
 // ─── Convenience types ──────────────────────────────────────────

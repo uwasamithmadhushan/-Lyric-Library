@@ -1,6 +1,7 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import { Pressable, View, StyleSheet } from 'react-native';
-import { colors, spacing, radii } from '@/theme';
+import { spacing, radii, shadows } from '@/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { AppText } from '../primitives/AppText';
 
 interface SongRowProps {
@@ -14,6 +15,10 @@ interface SongRowProps {
   onPress: () => void;
   /** Press handler for the action button (defaults to onPress) */
   onActionPress?: () => void;
+  /** Whether this song is favorited */
+  favorited?: boolean;
+  /** Toggle favorite handler */
+  onFavoriteToggle?: () => void;
 }
 
 /**
@@ -26,12 +31,24 @@ export const SongRow = memo(function SongRow({
   actionLabel = 'View',
   onPress,
   onActionPress,
+  favorited = false,
+  onFavoriteToggle,
 }: Readonly<SongRowProps>) {
+  const { colors } = useTheme();
+  const [focused, setFocused] = useState(false);
+
   return (
     <View style={styles.row}>
       <Pressable
         onPress={onPress}
-        style={({ pressed }) => [styles.info, pressed && styles.pressed]}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={({ pressed }) => [
+          styles.info,
+          { backgroundColor: colors.bgElevated, borderColor: colors.border },
+          pressed && styles.pressed,
+          focused && { borderColor: colors.primary, borderWidth: 1.5 },
+        ]}
         accessibilityRole="button"
         accessibilityLabel={`Open song: ${title}. Details: ${meta}.`}
       >
@@ -43,17 +60,31 @@ export const SongRow = memo(function SongRow({
         </AppText>
       </Pressable>
 
-      <Pressable
-        onPress={onActionPress ?? onPress}
-        hitSlop={4}
-        style={({ pressed }) => [styles.actionBtn, pressed && styles.pressed]}
-        accessibilityRole="button"
-        accessibilityLabel={`${actionLabel} lyrics for ${title}`}
-      >
-        <AppText variant="actionLabel" color={colors.primary}>
-          {actionLabel}
-        </AppText>
-      </Pressable>
+      <View style={[styles.rightActions, focused && styles.focusedActions]}>
+        <Pressable
+          onPress={onActionPress ?? onPress}
+          hitSlop={8}
+          style={({ pressed }) => [styles.actionBtn, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel={`${actionLabel} lyrics for ${title}`}
+        >
+          <AppText variant="actionLabel" color={colors.primary}>
+            {actionLabel}
+          </AppText>
+        </Pressable>
+
+        <Pressable
+          onPress={onFavoriteToggle}
+          hitSlop={8}
+          style={({ pressed }) => [styles.favoriteBtn, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel={favorited ? `Remove ${title} from favorites` : `Add ${title} to favorites`}
+        >
+          <AppText variant="actionLabel" color={favorited ? colors.primary : colors.textSecondary}>
+            {favorited ? '♥' : '♡'}
+          </AppText>
+        </Pressable>
+      </View>
     </View>
   );
 });
@@ -63,24 +94,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: spacing.lg,
-    backgroundColor: colors.bgElevated,
+    padding: spacing.md,
     borderRadius: radii.lg,
-    borderWidth: 2,
-    borderColor: colors.border,
+    borderWidth: 1,
     marginBottom: spacing.sm,
+    ...shadows.card,
   },
   pressed: {
-    opacity: 0.85,
+    opacity: 0.9,
   },
   info: {
     flex: 1,
     marginRight: spacing.md,
   },
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  focusedActions: {
+    // slight lift when row focused
+    transform: [{ translateY: -2 }],
+  },
   actionBtn: {
-    paddingVertical: spacing.s,
+    paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
-    backgroundColor: colors.primaryLight,
-    borderRadius: radii.sm,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  favoriteBtn: {
+    marginLeft: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

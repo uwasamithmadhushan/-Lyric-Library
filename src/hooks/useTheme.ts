@@ -1,5 +1,8 @@
-import { useCallback } from 'react';
-import { theme, Theme } from '@/theme';
+import { useCallback, useMemo } from 'react';
+import { useColorScheme } from 'react-native';
+import { useUIStore } from '@/store';
+import { colors as lightColors, darkColors, gradients, spacing, radii, fontFamily, fontWeight, fontSize, lineHeight, textVariants, shadows } from '@/theme';
+import type { Theme } from '@/theme';
 
 /**
  * Hook to access the app theme.
@@ -9,7 +12,25 @@ import { theme, Theme } from '@/theme';
  *   const { colors, spacing, textVariants } = useTheme();
  */
 export function useTheme(): Theme {
-  return theme;
+  const themeMode = useUIStore((state) => state.themeMode);
+  const systemScheme = useColorScheme();
+
+  return useMemo(() => {
+    const resolvedDark = themeMode === 'dark' || (themeMode === 'system' && systemScheme === 'dark');
+
+    return {
+      colors: resolvedDark ? darkColors : lightColors,
+      gradients,
+      spacing,
+      radii,
+      fontFamily,
+      fontWeight,
+      fontSize,
+      lineHeight,
+      textVariants,
+      shadows,
+    } as Theme;
+  }, [systemScheme, themeMode]);
 }
 
 /**
@@ -22,7 +43,9 @@ export function useTheme(): Theme {
  *   }));
  */
 export function useThemedStyles() {
+  const currentTheme = useTheme();
+
   return useCallback(<T>(factory: (t: Theme) => T): T => {
-    return factory(theme);
-  }, []);
+    return factory(currentTheme);
+  }, [currentTheme]);
 }

@@ -1,4 +1,4 @@
-export { colors, gradients } from './tokens';
+export { colors, darkColors, gradients } from './tokens';
 export type { ColorKey } from './tokens';
 
 export { spacing, radii } from './spacing';

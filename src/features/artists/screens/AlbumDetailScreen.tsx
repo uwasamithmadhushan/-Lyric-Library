@@ -4,11 +4,13 @@ import { AppScreen, AppText, SongRow, LoadingState, EmptyState, ErrorState } fro
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ArtistsStackParamList } from '@/app/navigationTypes';
 import { useSongs } from '@/hooks';
-import { colors, spacing } from '@/theme';
+import { spacing } from '@/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 type Props = Readonly<NativeStackScreenProps<ArtistsStackParamList, 'AlbumDetail'>>;
 
 export default function AlbumDetailScreen({ route, navigation }: Props) {
+  const { colors } = useTheme();
   const { albumId, albumName, artistName } = route.params;
 
   const {
@@ -44,7 +46,7 @@ export default function AlbumDetailScreen({ route, navigation }: Props) {
         accessibilityLabel="Go back"
         accessibilityHint="Returns to the previous screen"
       >
-        <AppText variant="pageSubtitle" style={styles.backChevron}>‹</AppText>
+        <AppText variant="pageSubtitle" color={colors.textPrimary} style={styles.backChevron}>‹</AppText>
       </TouchableOpacity>
 
       <View style={styles.header}>
@@ -95,7 +97,6 @@ const styles = StyleSheet.create({
   backChevron: {
     fontSize: 30,
     lineHeight: 32,
-    color: colors.textPrimary,
   },
   header: {
     paddingTop: spacing.massive,

@@ -1,7 +1,8 @@
-import React from 'react';
-import { Pressable, StyleSheet, ViewStyle, ActivityIndicator } from 'react-native';
-import { colors, spacing, radii } from '@/theme';
+import React, { useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, ViewStyle } from 'react-native';
+import { spacing, radii } from '@/theme';
 import { AppText } from './AppText';
+import { useTheme } from '@/hooks/useTheme';
 
 type ButtonVariant = 'primary' | 'secondary' | 'tertiary';
 
@@ -35,16 +36,39 @@ export function AppButton({
   loading = false,
   style,
 }: AppButtonProps) {
+  const { colors } = useTheme();
   const isDisabled = disabled || loading;
+  const [focused, setFocused] = useState(false);
+
+  const backgroundColor =
+    variant === 'primary'
+      ? colors.primary
+      : variant === 'secondary'
+        ? colors.primaryLight
+        : colors.transparent;
+
+  const shadowStyle = {
+    boxShadow: focused
+      ? '0px 4px 16px rgba(0,0,0,0.12)'
+      : '0px 4px 8px rgba(0,0,0,0.06)',
+  };
 
   return (
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
       style={({ pressed }) => [
         styles.base,
-        variantStyles[variant],
+        {
+          backgroundColor,
+          borderColor: colors.border,
+          borderWidth: variant === 'tertiary' ? 1 : 0,
+        },
+        shadowStyle,
         pressed && !isDisabled && styles.pressed,
+        focused && !isDisabled && styles.focused,
         isDisabled && styles.disabled,
         style,
       ]}
@@ -71,31 +95,20 @@ export function AppButton({
 
 const styles = StyleSheet.create({
   base: {
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.sm + 2,
     paddingHorizontal: spacing.lg,
-    borderRadius: radii.sm,
+    borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 36,
+    minHeight: 44,
   },
   pressed: {
-    opacity: 0.85,
+    transform: [{ scale: 0.995 }],
+  },
+  focused: {
+    transform: [{ scale: 1.01 }],
   },
   disabled: {
     opacity: 0.5,
   },
 });
-
-const variantStyles: Record<ButtonVariant, ViewStyle> = {
-  primary: {
-    backgroundColor: colors.primary,
-  },
-  secondary: {
-    backgroundColor: colors.primaryLight,
-  },
-  tertiary: {
-    backgroundColor: colors.transparent,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-};

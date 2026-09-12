@@ -6,13 +6,14 @@ import { AppScreen, AppText, SongRow, LoadingState, ErrorState } from '@/compone
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ArtistsStackParamList } from '@/app/navigationTypes';
 import { useArtistById, type Song, type Album } from '../hooks/useArtistById';
-import { colors, gradients, spacing, radii, shadows } from '@/theme';
+import { gradients, spacing, radii, shadows } from '@/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 type Props = Readonly<NativeStackScreenProps<ArtistsStackParamList, 'ArtistDetail'>>;
 
-function SectionHeader({ label }: Readonly<{ label: string }>) {
+function SectionHeader({ label, color }: Readonly<{ label: string; color: string }>) {
   return (
-    <AppText variant="sectionHeader" style={styles.sectionHeader}>
+    <AppText variant="sectionHeader" color={color} style={styles.sectionHeader}>
       {label}
     </AppText>
   );
@@ -21,12 +22,14 @@ function SectionHeader({ label }: Readonly<{ label: string }>) {
 function AlbumRow({
   album,
   onPress,
+  colors,
 }: Readonly<{
   album: Album;
   onPress: () => void;
+  colors: { bgElevated: string; border: string; textTertiary: string; primaryLight: string; primary: string };
 }>) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.albumRow, pressed && styles.pressed]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.albumRow, { backgroundColor: colors.bgElevated, borderColor: colors.border }, pressed && styles.pressed]}>
       <View style={styles.albumInfo}>
         <AppText variant="itemTitle">{album.name}</AppText>
         <AppText variant="itemMeta" color={colors.textTertiary}>
@@ -34,7 +37,7 @@ function AlbumRow({
         </AppText>
       </View>
 
-      <View style={styles.browsePill}>
+      <View style={[styles.browsePill, { backgroundColor: colors.primaryLight }]}>
         <AppText variant="actionLabel" color={colors.primary}>
           Browse
         </AppText>
@@ -44,6 +47,7 @@ function AlbumRow({
 }
 
 export default function ArtistDetailScreen({ route, navigation }: Props) {
+  const { colors } = useTheme();
   const { artistId, artistName } = route.params;
   const { data: artist, isLoading, isError, refetch } = useArtistById(artistId);
 
@@ -89,13 +93,13 @@ export default function ArtistDetailScreen({ route, navigation }: Props) {
   }
 
   return (
-    <AppScreen style={styles.screen}>
+    <AppScreen style={[styles.screen, { backgroundColor: colors.bgPrimary }]}>
       <TouchableOpacity
         style={styles.backButton}
         onPress={() => navigation.goBack()}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
-        <AppText variant="pageSubtitle" style={styles.backChevron}>
+        <AppText variant="pageSubtitle" color={colors.textPrimary} style={styles.backChevron}>
           ‹
         </AppText>
       </TouchableOpacity>
@@ -121,7 +125,7 @@ export default function ArtistDetailScreen({ route, navigation }: Props) {
           </AppText>
         </View>
 
-        <SectionHeader label="POPULAR SONGS" />
+        <SectionHeader label="POPULAR SONGS" color={colors.textTertiary} />
         {artist.popularSongs.map((song) => (
           <SongRow
             key={song.id}
@@ -131,9 +135,9 @@ export default function ArtistDetailScreen({ route, navigation }: Props) {
           />
         ))}
 
-        <SectionHeader label="ALBUMS" />
+        <SectionHeader label="ALBUMS" color={colors.textTertiary} />
         {artist.albums.map((album) => (
-          <AlbumRow key={album.id} album={album} onPress={() => handleAlbumPress(album)} />
+          <AlbumRow key={album.id} album={album} onPress={() => handleAlbumPress(album)} colors={colors} />
         ))}
 
         <View style={styles.bottomPad} />
@@ -144,7 +148,6 @@ export default function ArtistDetailScreen({ route, navigation }: Props) {
 
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: colors.bgPrimary,
   },
   backButton: {
     position: 'absolute',
@@ -159,7 +162,6 @@ const styles = StyleSheet.create({
   backChevron: {
     fontSize: 30,
     lineHeight: 32,
-    color: colors.textPrimary,
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,
@@ -187,10 +189,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.bgElevated,
     borderRadius: radii.lg,
     borderWidth: 2,
-    borderColor: colors.border,
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.sm,
@@ -204,7 +204,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.s,
     paddingHorizontal: spacing.md,
     borderRadius: radii.sm,
-    backgroundColor: colors.primaryLight,
   },
   pressed: {
     opacity: 0.85,

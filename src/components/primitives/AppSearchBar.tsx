@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, TextInput, StyleSheet, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { colors, spacing, radii, shadows, textVariants } from '@/theme';
+import { spacing, radii, shadows, textVariants } from '@/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 interface AppSearchBarProps {
   /** Current value */
@@ -32,8 +33,15 @@ export function AppSearchBar({
   onFocus,
   onBlur,
 }: Readonly<AppSearchBarProps>) {
+  const { colors } = useTheme();
   return (
-    <View style={[styles.container, active ? styles.containerActive : styles.containerInactive]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: colors.bgElevated, borderColor: active ? colors.primary : colors.border },
+        active ? styles.containerActive : styles.containerInactive,
+      ]}
+    >
       {/* Search icon */}
       <Feather name="search" size={18} color={colors.textTertiary} />
 
@@ -75,23 +83,19 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 18,
     gap: spacing.md,
-    backgroundColor: colors.bgElevated,
   },
   containerInactive: {
     borderWidth: 3,
-    borderColor: colors.border,
     ...shadows.card,
   },
   containerActive: {
     borderWidth: 3,
-    borderColor: colors.primary,
     ...shadows.searchActive,
   },
 
   input: {
     flex: 1,
     ...textVariants.searchInput,
-    color: colors.textPrimary,
     padding: 0,
     margin: 0,
   },
@@ -105,7 +109,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 14,
     height: 2,
-    backgroundColor: colors.textTertiary,
     borderRadius: 1,
   },
   clearLine1: {

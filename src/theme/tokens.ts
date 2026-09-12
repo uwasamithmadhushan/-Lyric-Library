@@ -9,23 +9,24 @@
  */
 
 export const colors = {
-  // Brand
-  primary: '#7C3AED',
-  secondary: '#EC4899',
-  accent: '#F59E0B',
+  // Brand (professional blue palette)
+  primary: '#2563EB', // blue-600
+  primaryDark: '#1E40AF',
+  secondary: '#0EA5A4', // teal-ish
+  accent: '#F59E0B', // amber accent
 
   // Backgrounds
-  bgPrimary: '#FDFBF7',
-  bgSecondary: '#F5F1E8',
+  bgPrimary: '#FBFDFF',
+  bgSecondary: '#F3F7FB',
   bgElevated: '#FFFFFF',
 
   // Text
-  textPrimary: '#1F1B16',
-  textSecondary: '#6B6557',
-  textTertiary: '#9E9788',
+  textPrimary: '#0F172A', // slate-900
+  textSecondary: '#475569', // slate-600
+  textTertiary: '#94A3B8', // slate-400
 
   // Borders
-  border: '#E8E3D8',
+  border: '#E6EEF9',
 
   // Semantic
   error: '#DC2626',
@@ -33,12 +34,12 @@ export const colors = {
   warning: '#F59E0B',
 
   // Overlays
-  overlayLight: 'rgba(0, 0, 0, 0.04)',
-  overlayMedium: 'rgba(0, 0, 0, 0.1)',
+  overlayLight: 'rgba(15, 23, 42, 0.04)',
+  overlayMedium: 'rgba(15, 23, 42, 0.08)',
 
   // Active states
-  primaryLight: 'rgba(124, 58, 237, 0.1)',
-  secondaryLight: 'rgba(236, 72, 153, 0.1)',
+  primaryLight: 'rgba(37, 99, 235, 0.08)',
+  secondaryLight: 'rgba(14, 165, 164, 0.08)',
 
   // Pure
   white: '#FFFFFF',
@@ -46,17 +47,49 @@ export const colors = {
   transparent: 'transparent',
 } as const;
 
+/** Dark palette used when the user selects dark mode. */
+export const darkColors = {
+  primary: '#60A5FA',
+  primaryDark: '#2563EB',
+  secondary: '#2DD4BF',
+  accent: '#FBBF24',
+
+  bgPrimary: '#0B1220',
+  bgSecondary: '#111827',
+  bgElevated: '#172033',
+
+  textPrimary: '#F8FAFC',
+  textSecondary: '#CBD5E1',
+  textTertiary: '#94A3B8',
+
+  border: '#243244',
+
+  error: '#F87171',
+  success: '#4ADE80',
+  warning: '#FBBF24',
+
+  overlayLight: 'rgba(248, 250, 252, 0.06)',
+  overlayMedium: 'rgba(248, 250, 252, 0.12)',
+
+  primaryLight: 'rgba(96, 165, 250, 0.16)',
+  secondaryLight: 'rgba(45, 212, 191, 0.16)',
+
+  white: '#FFFFFF',
+  black: '#000000',
+  transparent: 'transparent',
+} as const;
+
 /** Gradient stop arrays for use with LinearGradient */
 export const gradients = {
-  /** Primary brand gradient: purple → pink */
+  /** Primary brand gradient: blue → navy */
   gradient1: {
-    colors: ['#7C3AED', '#EC4899'] as const,
+    colors: ['#2563EB', '#1E40AF'] as const,
     start: { x: 0, y: 0 },
     end: { x: 1, y: 1 },
   },
-  /** Accent gradient: amber → pink */
+  /** Accent gradient: teal → blue */
   gradient2: {
-    colors: ['#F59E0B', '#EC4899'] as const,
+    colors: ['#06B6D4', '#2563EB'] as const,
     start: { x: 0, y: 0 },
     end: { x: 1, y: 1 },
   },

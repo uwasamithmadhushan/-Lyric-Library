@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { Pressable, View, StyleSheet } from 'react-native';
-import { colors, spacing, radii } from '@/theme';
+import { spacing, radii, shadows } from '@/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { AppText } from '../primitives/AppText';
 
 interface ResultRowProps {
@@ -27,6 +28,7 @@ export const ResultRow = memo(function ResultRow({
   type,
   onPress,
 }: ResultRowProps) {
+  const { colors } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -65,32 +67,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     padding: spacing.md,
-    backgroundColor: colors.bgElevated,
     borderRadius: radii.lg,
-    borderWidth: 2,
-    borderColor: colors.border,
+    borderWidth: 1,
     marginBottom: spacing.sm,
+    ...shadows.card,
   },
   pressed: {
-    opacity: 0.85,
+    opacity: 0.9,
   },
   icon: {
-    width: 48,
-    height: 48,
+    width: 56,
+    height: 56,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: radii.lg,
+    marginRight: spacing.md,
   },
   iconArtist: {
-    borderRadius: radii.lg,
-    backgroundColor: colors.primary,
   },
   iconSong: {
-    borderRadius: radii.lg,
-    backgroundColor: colors.accent,
   },
   iconAlbum: {
     borderRadius: radii.sm,
-    backgroundColor: colors.secondary,
   },
   info: {
     flex: 1,
