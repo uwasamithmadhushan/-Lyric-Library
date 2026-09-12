@@ -245,13 +245,13 @@ export function SongPlayer({
               key={`beat-${index}`}
               style={[
                 styles.beatBar,
+                isPlaying ? styles.beatBarActive : styles.beatBarIdle,
                 {
                   backgroundColor: isPlaying ? colors.primary : colors.border,
                   height: anim.interpolate({
                     inputRange: [0, 1],
                     outputRange: [8, 56],
                   }),
-                  opacity: isPlaying ? 1 : 0.55,
                 },
               ]}
             />
@@ -409,6 +409,12 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 999,
     minHeight: 8,
+  },
+  beatBarActive: {
+    opacity: 1,
+  },
+  beatBarIdle: {
+    opacity: 0.55,
   },
   track: {
     height: 8,

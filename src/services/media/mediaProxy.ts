@@ -58,10 +58,6 @@ export function installMediaFetchGuard(): void {
     const originalUrl = toUrlString(input);
     const nextUrl = rewriteMediaUrl(originalUrl);
 
-    if (nextUrl !== originalUrl && typeof console !== 'undefined') {
-      console.info(`[LyricLibrary] redirected → ${nextUrl}`);
-    }
-
     if (nextUrl === originalUrl) {
       return originalFetch(input as RequestInfo, init);
     }
@@ -75,10 +71,6 @@ export function installMediaFetchGuard(): void {
     .catch(() => undefined);
 
   installed = true;
-
-  if (typeof console !== 'undefined') {
-    console.info(`[LyricLibrary] media ${MEDIA_PROXY_BUILD} — fetch guard on`);
-  }
 }
 
 export function mediaFetchUrl(kind: 'deezer' | 'itunes', query: Record<string, string>): string {

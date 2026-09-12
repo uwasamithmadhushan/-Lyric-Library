@@ -125,7 +125,8 @@ export default function SavedScreen({ navigation }: Readonly<Props>) {
             onPress={() => setActiveTab(tab.key)}
             style={[
               styles.tab,
-              activeTab === tab.key && { borderBottomColor: colors.primary, borderBottomWidth: 2 },
+              activeTab === tab.key && styles.tabActive,
+              activeTab === tab.key && { borderBottomColor: colors.primary },
             ]}
             accessibilityRole="tab"
             accessibilityState={{ selected: activeTab === tab.key }}
@@ -317,6 +318,9 @@ const styles = StyleSheet.create({
   tab: {
     paddingBottom: spacing.sm,
     marginRight: spacing.xxl,
+  },
+  tabActive: {
+    borderBottomWidth: 2,
   },
   tabDivider: {
     position: 'absolute',

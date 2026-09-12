@@ -6,7 +6,7 @@ const SECTION_HEADER =
   /^\[?\s*(verse\s*\d*|pre[-\s]?chorus\s*\d*|chorus\s*\d*|bridge\s*\d*|outro|intro|hook|refrain)\s*\]?\s*:?\s*$/i;
 
 function sectionTypeFromLabel(label: string): LyricsSection['type'] {
-  const normalized = label.toLowerCase().replace(/[\[\]]/g, '').trim();
+  const normalized = label.toLowerCase().replace(/[[\]]/g, '').trim();
   if (
     normalized.startsWith('chorus') ||
     normalized.startsWith('hook') ||

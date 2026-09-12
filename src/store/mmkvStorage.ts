@@ -16,7 +16,7 @@ function getMMKV() {
   if (mmkv) return mmkv;
   try {
     // Lazy require so web bundles don't crash if native module is missing.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
     const { MMKV } = require('react-native-mmkv') as typeof import('react-native-mmkv');
     mmkv = new MMKV({ id: 'lyric-library' });
     return mmkv;

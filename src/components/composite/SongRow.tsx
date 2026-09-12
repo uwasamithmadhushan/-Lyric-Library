@@ -40,10 +40,10 @@ export const SongRow = memo(function SongRow({
     <View
       style={[
         styles.card,
+        focused ? styles.cardFocused : styles.cardIdle,
         {
           backgroundColor: colors.bgElevated,
           borderColor: focused ? colors.primary : colors.border,
-          borderWidth: focused ? 1.5 : 1,
         },
       ]}
     >
@@ -121,6 +121,12 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     marginBottom: spacing.sm,
     ...shadows.card,
+  },
+  cardIdle: {
+    borderWidth: 1,
+  },
+  cardFocused: {
+    borderWidth: 1.5,
   },
   pressed: {
     opacity: 0.9,
