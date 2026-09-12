@@ -8,6 +8,9 @@ import type { ArtistsStackParamList } from '@/app/navigationTypes';
 import { useArtistById, type Song, type Album } from '../hooks/useArtistById';
 import { gradients, spacing, radii, shadows } from '@/theme';
 import { useTheme } from '@/hooks/useTheme';
+import { addRecentlyViewed } from '@/store/localState';
+import { useSavedStore } from '@/store';
+import { toggleSavedLyric } from '@/store/savedLyricsActions';
 
 type Props = Readonly<NativeStackScreenProps<ArtistsStackParamList, 'ArtistDetail'>>;
 
@@ -26,7 +29,13 @@ function AlbumRow({
 }: Readonly<{
   album: Album;
   onPress: () => void;
-  colors: { bgElevated: string; border: string; textTertiary: string; primaryLight: string; primary: string };
+  colors: {
+    bgElevated: string;
+    bgSecondary: string;
+    border: string;
+    textTertiary: string;
+    textSecondary: string;
+  };
 }>) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.albumRow, { backgroundColor: colors.bgElevated, borderColor: colors.border }, pressed && styles.pressed]}>
@@ -37,8 +46,8 @@ function AlbumRow({
         </AppText>
       </View>
 
-      <View style={[styles.browsePill, { backgroundColor: colors.primaryLight }]}>
-        <AppText variant="actionLabel" color={colors.primary}>
+      <View style={[styles.browsePill, { backgroundColor: colors.bgSecondary, borderColor: colors.border }]}>
+        <AppText variant="actionLabel" color={colors.textSecondary}>
           Browse
         </AppText>
       </View>
@@ -51,6 +60,7 @@ export default function ArtistDetailScreen({ route, navigation }: Props) {
   const { artistId, artistName } = route.params;
   const { data: artist, isLoading, isError, refetch } = useArtistById(artistId);
   const [imageFailed, setImageFailed] = useState(false);
+  const savedMap = useSavedStore((state) => state.savedMap);
 
   useFocusEffect(
     useCallback(() => {
@@ -61,10 +71,16 @@ export default function ArtistDetailScreen({ route, navigation }: Props) {
   );
 
   const handleSongPress = (song: Song) => {
+    const name = artist?.name ?? artistName;
+    addRecentlyViewed({
+      songId: song.id,
+      songTitle: song.title,
+      artistName: name,
+    });
     navigation.navigate('Lyrics', {
       songId: song.id,
       songTitle: song.title,
-      artistName: artist?.name ?? artistName,
+      artistName: name,
     });
   };
 
@@ -138,19 +154,37 @@ export default function ArtistDetailScreen({ route, navigation }: Props) {
         </View>
 
         <SectionHeader label="POPULAR SONGS" color={colors.textTertiary} />
-        {artist.popularSongs.map((song) => (
-          <SongRow
-            key={song.id}
-            title={song.title}
-            meta={`${song.album} • ${song.year}`}
-            onPress={() => handleSongPress(song)}
-          />
-        ))}
+        {artist.popularSongs.map((song) => {
+          const meta =
+            song.year > 0
+              ? `${song.album || 'Single'} • ${song.year}`
+              : song.album || 'Single';
+          return (
+            <SongRow
+              key={song.id}
+              title={song.title}
+              meta={meta}
+              favorited={Boolean(savedMap[song.id])}
+              onFavoriteToggle={() =>
+                toggleSavedLyric({
+                  songId: song.id,
+                  songTitle: song.title,
+                  artistName: artist.name,
+                })
+              }
+              onPress={() => handleSongPress(song)}
+            />
+          );
+        })}
 
-        <SectionHeader label="ALBUMS" color={colors.textTertiary} />
-        {artist.albums.map((album) => (
-          <AlbumRow key={album.id} album={album} onPress={() => handleAlbumPress(album)} colors={colors} />
-        ))}
+        {artist.albums.length > 0 ? (
+          <>
+            <SectionHeader label="ALBUMS" color={colors.textTertiary} />
+            {artist.albums.map((album) => (
+              <AlbumRow key={album.id} album={album} onPress={() => handleAlbumPress(album)} colors={colors} />
+            ))}
+          </>
+        ) : null}
 
         <View style={styles.bottomPad} />
       </ScrollView>
@@ -200,16 +234,17 @@ const styles = StyleSheet.create({
     borderRadius: radii.full,
   },
   sectionHeader: {
-    marginTop: spacing.md,
+    marginTop: spacing.xl,
     marginBottom: spacing.md,
+    letterSpacing: 1.4,
   },
   albumRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderRadius: radii.lg,
-    borderWidth: 2,
-    paddingVertical: spacing.lg,
+    borderWidth: 1,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.sm,
     ...shadows.card,
@@ -217,14 +252,16 @@ const styles = StyleSheet.create({
   albumInfo: {
     flex: 1,
     marginRight: spacing.md,
+    gap: 2,
   },
   browsePill: {
-    paddingVertical: spacing.s,
+    paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
-    borderRadius: radii.sm,
+    borderRadius: radii.md,
+    borderWidth: 1,
   },
   pressed: {
-    opacity: 0.85,
+    opacity: 0.9,
   },
   bottomPad: {
     height: spacing.xl,

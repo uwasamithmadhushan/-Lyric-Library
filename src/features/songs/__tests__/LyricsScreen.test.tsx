@@ -26,6 +26,15 @@ jest.mock('@/store/localState', () => ({
   addRecentlyViewed: jest.fn(),
 }));
 
+jest.mock('@/store', () => ({
+  useSavedStore: (selector: (state: { savedMap: Record<string, unknown> }) => unknown) =>
+    selector({ savedMap: {} }),
+}));
+
+jest.mock('@/store/savedLyricsActions', () => ({
+  toggleSavedLyric: jest.fn(),
+}));
+
 jest.mock('expo-av', () => ({
   Audio: {
     setAudioModeAsync: jest.fn(async () => undefined),
@@ -60,12 +69,16 @@ jest.mock('@/hooks/useTheme', () => ({
     colors: {
       primary: '#2563EB',
       white: '#FFFFFF',
-      bgElevated: '#FFFFFF',
-      border: '#E5E7EB',
-      textSecondary: '#6B7280',
-      textTertiary: '#9CA3AF',
+      bgPrimary: '#0B1220',
+      bgSecondary: '#111827',
+      bgElevated: '#172033',
+      border: '#2A3447',
+      textPrimary: '#F8FAFC',
+      textSecondary: '#CBD5E1',
+      textTertiary: '#94A3B8',
       error: '#DC2626',
     },
+    isDark: true,
   }),
 }));
 
@@ -113,8 +126,8 @@ describe('LyricsScreen', () => {
     const { getByText } = render(<LyricsScreen route={mockRoute} navigation={mockNav} />);
 
     await waitFor(() => {
-      expect(getByText('Hello')).toBeTruthy();
       expect(getByText(/Hello, it's me/)).toBeTruthy();
+      expect(getByText(/I'm in California dreaming/)).toBeTruthy();
     });
   });
 });

@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, SectionList, useWindowDimensions, Platform, FlatList } from 'react-native';
 import { AppScreen, AppText, AppSearchBar, Chip, SongRow, LoadingState, EmptyState } from '@/components';
-import { addFavorite, removeFavorite, isFavorited } from '@/store/localState';
+import { useSavedStore } from '@/store';
+import { toggleSavedLyric } from '@/store/savedLyricsActions';
 import { useSongs } from '@/hooks/queries/useSongs';
 import { groupByInitial } from '@/utils/groupers';
 import { useNavigation } from '@react-navigation/native';
@@ -48,6 +49,7 @@ export default function SongsScreen() {
   const isSmallScreen = width < 375;
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SongSortKey>('title');
+  const savedMap = useSavedStore((state) => state.savedMap);
   const screenStyle = { ...styles.container, paddingHorizontal: width * 0.04 };
 
   const { data: songs, isLoading, isError } = useSongs({ sort, query });
@@ -83,7 +85,7 @@ export default function SongsScreen() {
         <AppSearchBar
           value={query}
           onChangeText={setQuery}
-          placeholder="Search songs..."
+          placeholder="Search songs or artists..."
           active={!!query}
         />
       </View>
@@ -126,21 +128,14 @@ export default function SongsScreen() {
             <SongRow
               title={item.title}
               meta={item.artistName}
-              favorited={isFavorited(item.id)}
-              onFavoriteToggle={() => {
-                if (isFavorited(item.id)) removeFavorite(item.id);
-                else addFavorite({
-                  id: item.id,
-                  title: item.title,
-                  artistId: item.artistId ?? '',
-                  artistName: item.artistName ?? '',
-                  albumId: item.albumId,
-                  albumTitle: item.albumTitle,
-                  releaseYear: item.releaseYear,
-                  genre: item.genre,
-                  popularity: item.popularity,
-                });
-              }}
+              favorited={Boolean(savedMap[item.id])}
+              onFavoriteToggle={() =>
+                toggleSavedLyric({
+                  songId: item.id,
+                  songTitle: item.title,
+                  artistName: item.artistName,
+                })
+              }
               onPress={() => navigation.navigate('Lyrics', {
                 songId: item.id,
                 songTitle: item.title,

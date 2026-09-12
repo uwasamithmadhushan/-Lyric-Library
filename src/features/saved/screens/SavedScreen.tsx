@@ -11,21 +11,24 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { AppScreen, AppText } from '@/components';
 import { EmptyState } from '@/components/composite/StateViews';
-import { colors, spacing, radii, shadows } from '@/theme';
+import { spacing, radii, shadows } from '@/theme';
+import { useTheme } from '@/hooks/useTheme';
 import type { SavedStackParamList } from '@/app/navigationTypes';
 import type { SavedLyricItem, SavedTab } from '../types';
+import type { SavedArtist } from '@/types';
 import { useSavedLyrics } from '../hooks/useSavedLyrics';
 
 type Props = NativeStackScreenProps<SavedStackParamList, 'SavedList'>;
 
 const TABS: { key: SavedTab; label: string }[] = [
   { key: 'recentlySaved', label: 'Recently Saved' },
-  { key: 'mostViewed', label: 'Most Viewed' },
+  { key: 'savedArtists', label: 'Saved Artists' },
 ];
 
 export default function SavedScreen({ navigation }: Readonly<Props>) {
+  const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState<SavedTab>('recentlySaved');
-  const { items, isEmpty, removeLyric } = useSavedLyrics(activeTab);
+  const { items, artists, isEmpty, removeLyric, removeArtist } = useSavedLyrics(activeTab);
 
   const handlePressItem = useCallback(
     (item: SavedLyricItem) => {
@@ -33,6 +36,16 @@ export default function SavedScreen({ navigation }: Readonly<Props>) {
         songId: item.songId,
         songTitle: item.songTitle,
         artistName: item.artistName,
+      });
+    },
+    [navigation],
+  );
+
+  const handlePressArtist = useCallback(
+    (artist: SavedArtist) => {
+      navigation.getParent()?.navigate('ArtistsTab', {
+        screen: 'ArtistDetail',
+        params: { artistId: artist.artistId, artistName: artist.artistName },
       });
     },
     [navigation],
@@ -56,62 +69,105 @@ export default function SavedScreen({ navigation }: Readonly<Props>) {
     [removeLyric],
   );
 
-  const renderItem = useCallback(
+  const handleUnsaveArtist = useCallback(
+    (artist: SavedArtist) => {
+      Alert.alert(
+        'Remove Artist',
+        `Remove "${artist.artistName}" from saved artists?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Remove',
+            style: 'destructive',
+            onPress: () => removeArtist(artist.artistId),
+          },
+        ],
+      );
+    },
+    [removeArtist],
+  );
+
+  const renderLyric = useCallback(
     ({ item }: ListRenderItemInfo<SavedLyricItem>) => (
       <SavedLyricCard
         item={item}
+        colors={colors}
         onPress={() => handlePressItem(item)}
         onUnsave={() => handleUnsave(item)}
       />
     ),
-    [handlePressItem, handleUnsave],
+    [colors, handlePressItem, handleUnsave],
+  );
+
+  const renderArtist = useCallback(
+    ({ item }: ListRenderItemInfo<SavedArtist>) => (
+      <SavedArtistCard
+        artist={item}
+        colors={colors}
+        onPress={() => handlePressArtist(item)}
+        onUnsave={() => handleUnsaveArtist(item)}
+      />
+    ),
+    [colors, handlePressArtist, handleUnsaveArtist],
   );
 
   return (
     <AppScreen padded={false}>
-      {/* Header */}
       <View style={styles.header}>
-        <AppText variant="pageTitle">Saved Lyrics</AppText>
-        <AppText variant="pageSubtitle">Your bookmarked collection</AppText>
+        <AppText variant="pageTitle">Saved</AppText>
+        <AppText variant="pageSubtitle">Your bookmarked lyrics and artists</AppText>
       </View>
 
-      {/* Tabs */}
       <View style={styles.tabRow}>
         {TABS.map((tab) => (
           <Pressable
             key={tab.key}
             onPress={() => setActiveTab(tab.key)}
-            style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+            style={[
+              styles.tab,
+              activeTab === tab.key && { borderBottomColor: colors.primary, borderBottomWidth: 2 },
+            ]}
             accessibilityRole="tab"
             accessibilityState={{ selected: activeTab === tab.key }}
             accessibilityLabel={tab.label}
           >
             <AppText
               variant="chipLabel"
-              color={
-                activeTab === tab.key ? colors.primary : colors.textTertiary
-              }
+              color={activeTab === tab.key ? colors.primary : colors.textTertiary}
             >
               {tab.label}
             </AppText>
           </Pressable>
         ))}
-        <View style={styles.tabDivider} />
+        <View style={[styles.tabDivider, { backgroundColor: colors.border }]} />
       </View>
 
-      {/*  List / Empty state  */}
       {isEmpty ? (
         <View style={styles.emptyWrapper}>
           <EmptyState
-            title="No saved lyrics yet"
-            subtitle="Tap the star on any lyrics screen to save them here."
+            title={
+              activeTab === 'savedArtists' ? 'No saved artists yet' : 'No saved lyrics yet'
+            }
+            subtitle={
+              activeTab === 'savedArtists'
+                ? 'Tap the ♥ on any artist card to save them here.'
+                : 'Tap the ♥ heart on any song, or Save on the lyrics screen.'
+            }
           />
         </View>
+      ) : activeTab === 'savedArtists' ? (
+        <FlatList
+          data={artists}
+          keyExtractor={(item) => item.artistId}
+          renderItem={renderArtist}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
       ) : (
         <FlatList
           data={items}
           keyExtractor={(item) => item.songId}
-          renderItem={renderItem}
+          renderItem={renderLyric}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
@@ -120,41 +176,62 @@ export default function SavedScreen({ navigation }: Readonly<Props>) {
   );
 }
 
-//  SavedLyricCard 
-interface CardProps {
-  item: SavedLyricItem;
-  onPress: () => void;
-  onUnsave: () => void;
+interface CardTheme {
+  bgElevated: string;
+  border: string;
+  primary: string;
+  primaryLight: string;
+  textPrimary: string;
+  textTertiary: string;
 }
 
-function SavedLyricCard({ item, onPress, onUnsave }: Readonly<CardProps>) {
+function SavedLyricCard({
+  item,
+  colors,
+  onPress,
+  onUnsave,
+}: Readonly<{
+  item: SavedLyricItem;
+  colors: CardTheme;
+  onPress: () => void;
+  onUnsave: () => void;
+}>) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-      accessibilityRole="button"
-      accessibilityLabel={`${item.songTitle} by ${item.artistName}. Tap to view lyrics.`}
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.bgElevated,
+          borderColor: colors.border,
+        },
+      ]}
     >
-      {/* Text info */}
-      <View style={styles.cardInfo}>
-        <AppText variant="itemTitle" numberOfLines={1}>
-          {item.songTitle}
-        </AppText>
-        <AppText variant="itemMeta" numberOfLines={1}>
-          {item.artistName}
-        </AppText>
-        {item.previewText ? (
-          <AppText
-            variant="preview"
-            numberOfLines={2}
-            style={styles.previewText}
-          >
-            &ldquo;{item.previewText}&rdquo;
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.cardMain, pressed && styles.cardPressed]}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.songTitle} by ${item.artistName}. Tap to view lyrics.`}
+      >
+        <View style={styles.cardInfo}>
+          <AppText variant="itemTitle" numberOfLines={1} color={colors.textPrimary}>
+            {item.songTitle}
           </AppText>
-        ) : null}
-      </View>
+          <AppText variant="itemMeta" numberOfLines={1} color={colors.textTertiary}>
+            {item.artistName}
+          </AppText>
+          {item.previewText ? (
+            <AppText
+              variant="preview"
+              numberOfLines={2}
+              color={colors.textTertiary}
+              style={styles.previewText}
+            >
+              &ldquo;{item.previewText}&rdquo;
+            </AppText>
+          ) : null}
+        </View>
+      </Pressable>
 
-      {/* Star / unsave button */}
       <Pressable
         onPress={onUnsave}
         hitSlop={8}
@@ -165,13 +242,64 @@ function SavedLyricCard({ item, onPress, onUnsave }: Readonly<CardProps>) {
         accessibilityRole="button"
         accessibilityLabel={`Remove ${item.songTitle} from saved`}
       >
-        <AppText style={styles.starIcon}>★</AppText>
+        <AppText style={[styles.starIcon, { color: colors.primary }]}>★</AppText>
       </Pressable>
-    </Pressable>
+    </View>
   );
 }
 
-//  Styles 
+function SavedArtistCard({
+  artist,
+  colors,
+  onPress,
+  onUnsave,
+}: Readonly<{
+  artist: SavedArtist;
+  colors: CardTheme;
+  onPress: () => void;
+  onUnsave: () => void;
+}>) {
+  return (
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.bgElevated,
+          borderColor: colors.border,
+        },
+      ]}
+    >
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.cardMain, pressed && styles.cardPressed]}
+        accessibilityRole="button"
+        accessibilityLabel={`${artist.artistName}. Tap to open artist.`}
+      >
+        <View style={styles.cardInfo}>
+          <AppText variant="itemTitle" numberOfLines={1} color={colors.textPrimary}>
+            {artist.artistName}
+          </AppText>
+          <AppText variant="itemMeta" numberOfLines={1} color={colors.textTertiary}>
+            {artist.songCount} songs
+          </AppText>
+        </View>
+      </Pressable>
+
+      <Pressable
+        onPress={onUnsave}
+        hitSlop={8}
+        style={({ pressed }) => [
+          styles.starBtn,
+          pressed && styles.starBtnPressed,
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={`Remove ${artist.artistName} from saved artists`}
+      >
+        <AppText style={[styles.starIcon, { color: colors.primary }]}>♥</AppText>
+      </Pressable>
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
   header: {
@@ -190,17 +318,12 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     marginRight: spacing.xxl,
   },
-  tabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: colors.primary,
-  },
   tabDivider: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: colors.border,
   },
   listContent: {
     paddingHorizontal: spacing.xxl,
@@ -211,42 +334,40 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
-  // Card
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.bgElevated,
     borderRadius: radii.xl,
+    borderWidth: 1,
     padding: spacing.lg,
     ...shadows.card,
+  },
+  cardMain: {
+    flex: 1,
+    marginRight: spacing.md,
   },
   cardPressed: {
     opacity: 0.75,
   },
   cardInfo: {
-    flex: 1,
     gap: spacing.xs,
-    paddingRight: spacing.md,
   },
   previewText: {
     fontStyle: 'italic',
     marginTop: spacing.xxs,
   },
-  // Star button
   starBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: radii.sm,
-    backgroundColor: colors.primaryLight,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   starBtnPressed: {
     opacity: 0.6,
   },
   starIcon: {
-    fontSize: 18,
-    color: colors.textPrimary,
-    lineHeight: 22,
+    fontSize: 20,
+    lineHeight: 24,
   },
 });

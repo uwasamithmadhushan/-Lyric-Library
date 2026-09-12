@@ -67,6 +67,14 @@ export interface SavedLyric {
   viewCount: number;
 }
 
+export interface SavedArtist {
+  artistId: string;
+  artistName: string;
+  songCount: number;
+  imageUrl?: string;
+  savedAt: number;
+}
+
 export interface SearchResult {
   type: 'song' | 'artist' | 'album' | 'lyrics';
   id: string;

@@ -1,26 +1,54 @@
-// Lightweight in-memory local state for favorites and recently viewed
-// This intentionally keeps state in module scope for simplicity in this frontend-only app.
+// Recently viewed + legacy song favorites helpers.
+// Recently viewed is persisted so Home survives refresh.
 
 import type { Song } from '@/types';
+import { mmkvStorage } from './mmkvStorage';
 
-type RecentItem = {
+export type RecentItem = {
   songId: string;
   songTitle: string;
   artistName?: string;
   viewedAt: number;
 };
 
-const recent: RecentItem[] = [];
+const RECENT_KEY = 'lyric-library-recent';
+const MAX_RECENT = 50;
+
+let recent: RecentItem[] = loadRecent();
 const favorites: Record<string, Song> = {};
 
-export function addRecentlyViewed(item: { songId: string; songTitle: string; artistName?: string }) {
+function loadRecent(): RecentItem[] {
+  try {
+    const raw = mmkvStorage.getItem(RECENT_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as RecentItem[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistRecent() {
+  try {
+    mmkvStorage.setItem(RECENT_KEY, JSON.stringify(recent));
+  } catch {
+    // ignore
+  }
+}
+
+export function addRecentlyViewed(item: {
+  songId: string;
+  songTitle: string;
+  artistName?: string;
+}) {
+  if (!item.songId || !item.songTitle) return;
+
   const now = Date.now();
-  // remove existing
-  const idx = recent.findIndex(r => r.songId === item.songId);
+  const idx = recent.findIndex((r) => r.songId === item.songId);
   if (idx !== -1) recent.splice(idx, 1);
   recent.unshift({ ...item, viewedAt: now });
-  // keep last 50
-  if (recent.length > 50) recent.pop();
+  if (recent.length > MAX_RECENT) recent.length = MAX_RECENT;
+  persistRecent();
 }
 
 export function getRecentlyViewed() {
@@ -28,7 +56,8 @@ export function getRecentlyViewed() {
 }
 
 export function clearRecentlyViewed() {
-  recent.length = 0;
+  recent = [];
+  persistRecent();
 }
 
 export function addFavorite(song: Song) {

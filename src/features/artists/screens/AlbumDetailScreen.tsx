@@ -6,6 +6,8 @@ import type { ArtistsStackParamList } from '@/app/navigationTypes';
 import { useSongs } from '@/hooks';
 import { spacing } from '@/theme';
 import { useTheme } from '@/hooks/useTheme';
+import { useSavedStore } from '@/store';
+import { toggleSavedLyric } from '@/store/savedLyricsActions';
 
 type Props = Readonly<NativeStackScreenProps<ArtistsStackParamList, 'AlbumDetail'>>;
 
@@ -19,6 +21,7 @@ export default function AlbumDetailScreen({ route, navigation }: Props) {
     isError,
     refetch,
   } = useSongs({ albumId, sort: 'title' });
+  const savedMap = useSavedStore((state) => state.savedMap);
 
   if (isLoading) {
     return (
@@ -67,7 +70,15 @@ export default function AlbumDetailScreen({ route, navigation }: Props) {
           renderItem={({ item }) => (
             <SongRow
               title={item.title}
-              meta={`${item.artistName} • ${item.releaseYear ?? 'Unknown year'}`}
+              meta={`${item.artistName}${item.releaseYear ? ` • ${item.releaseYear}` : ''}`}
+              favorited={Boolean(savedMap[item.id])}
+              onFavoriteToggle={() =>
+                toggleSavedLyric({
+                  songId: item.id,
+                  songTitle: item.title,
+                  artistName: item.artistName,
+                })
+              }
               onPress={() =>
                 navigation.navigate('Lyrics', {
                   songId: item.id,

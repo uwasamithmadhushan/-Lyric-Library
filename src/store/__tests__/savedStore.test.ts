@@ -18,6 +18,8 @@ describe('savedStore', () => {
     useSavedStore.setState({
       savedMap: {},
       savedOrder: [],
+      artistMap: {},
+      artistOrder: [],
       hasHydrated: false,
     });
     (useSavedStore as unknown as { persist: { clearStorage: () => void } }).persist

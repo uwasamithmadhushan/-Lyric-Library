@@ -7,9 +7,17 @@ import { useArtists } from '@/hooks';
 import type { RootTabParamList } from '@/app/navigationTypes';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { HOME_FEATURED_SONGS, toCatalogSongId, mapPool } from '@/data/catalog/featuredCatalog';
-import { getRecentlyViewed, getFavorites } from '@/store/localState';
+import {
+  HOME_FEATURED_SONGS,
+  toCatalogSongId,
+  mapPool,
+  buildLocalCatalogArtists,
+  buildLocalCatalogSongs,
+} from '@/data/catalog/featuredCatalog';
+import { getRecentlyViewed, addRecentlyViewed } from '@/store/localState';
+import { useSavedStore } from '@/store';
 import { enrichArtistImage } from '@/services/deezer/deezerApi';
+import { toggleSavedArtist } from '@/store/savedLyricsActions';
 import type { Artist } from '@/types';
 
 const FEATURED = HOME_FEATURED_SONGS.map((item) => ({
@@ -24,7 +32,22 @@ export default function HomeScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const [recent, setRecent] = useState(() => getRecentlyViewed().slice(0, 5));
-  const [favorites, setFavorites] = useState(() => getFavorites().slice(0, 5));
+  const savedOrder = useSavedStore((state) => state.savedOrder);
+  const savedMap = useSavedStore((state) => state.savedMap);
+  const artistMap = useSavedStore((state) => state.artistMap);
+  const favorites = useMemo(
+    () =>
+      savedOrder
+        .map((id) => savedMap[id])
+        .filter(Boolean)
+        .slice(0, 5)
+        .map((item) => ({
+          id: item!.songId,
+          title: item!.songTitle,
+          artistName: item!.artistName,
+        })),
+    [savedOrder, savedMap],
+  );
   const [query, setQuery] = useState('');
   const { data: popularArtists = [] } = useArtists();
   const [homeArtists, setHomeArtists] = useState<Artist[]>([]);
@@ -55,7 +78,6 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       setRecent(getRecentlyViewed().slice(0, 5));
-      setFavorites(getFavorites().slice(0, 5));
     }, [])
   );
   const { width } = useWindowDimensions();
@@ -66,17 +88,30 @@ export default function HomeScreen() {
 
   const filteredFeatured = useMemo(() => {
     if (!normalizedQuery) return FEATURED;
-    return FEATURED.filter(
-      (item) =>
-        item.title.toLowerCase().includes(normalizedQuery) ||
-        item.artist.toLowerCase().includes(normalizedQuery),
-    );
+    // Full catalog song search (title OR artist name).
+    return buildLocalCatalogSongs({ query: normalizedQuery })
+      .slice(0, 24)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        artist: item.artistName,
+      }));
   }, [normalizedQuery]);
 
   const filteredArtists = useMemo(() => {
-    const artists = homeArtists.length > 0 ? homeArtists : popularArtists.slice(0, 8);
-    if (!normalizedQuery) return artists;
-    return artists.filter((item) => item.name.toLowerCase().includes(normalizedQuery));
+    if (!normalizedQuery) {
+      return homeArtists.length > 0 ? homeArtists : popularArtists.slice(0, 8);
+    }
+    // Full catalog artist search (name OR their songs).
+    return buildLocalCatalogArtists({ query: normalizedQuery })
+      .slice(0, 16)
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        songCount: item.songCount,
+        albums: [] as Artist['albums'],
+        imageUrl: undefined as string | undefined,
+      }));
   }, [normalizedQuery, homeArtists, popularArtists]);
 
   const filteredGenres = useMemo(() => {
@@ -139,7 +174,7 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
-        <Section title="Featured Lyrics">
+        <Section title={normalizedQuery ? 'Matching Songs' : 'Featured Lyrics'}>
           <FlatList
             data={filteredFeatured}
             horizontal
@@ -148,12 +183,18 @@ export default function HomeScreen() {
             contentContainerStyle={styles.hListContent}
             renderItem={({ item }) => (
               <Pressable
-                onPress={() =>
+                onPress={() => {
+                  addRecentlyViewed({
+                    songId: item.id,
+                    songTitle: item.title,
+                    artistName: item.artist,
+                  });
+                  setRecent(getRecentlyViewed().slice(0, 5));
                   navigation.navigate('HomeTab', {
                     screen: 'Lyrics',
                     params: { songId: item.id, songTitle: item.title, artistName: item.artist },
-                  })
-                }
+                  });
+                }}
                 style={({ pressed }) => [styles.cardPressable, pressed && styles.cardPressed]}
               >
                 <View
@@ -174,7 +215,7 @@ export default function HomeScreen() {
           />
         </Section>
 
-        <Section title="Popular Artists">
+        <Section title={normalizedQuery ? 'Matching Artists' : 'Popular Artists'}>
           <FlatList
             data={filteredArtists}
             horizontal
@@ -188,6 +229,15 @@ export default function HomeScreen() {
                   songCount={item.songCount}
                   initial={item.name.charAt(0)}
                   imageUrl={item.imageUrl}
+                  favorited={Boolean(artistMap[item.id])}
+                  onFavoriteToggle={() =>
+                    toggleSavedArtist({
+                      artistId: item.id,
+                      artistName: item.name,
+                      songCount: item.songCount,
+                      imageUrl: item.imageUrl,
+                    })
+                  }
                   onPress={() =>
                     navigation.navigate('ArtistsTab', {
                       screen: 'ArtistDetail',

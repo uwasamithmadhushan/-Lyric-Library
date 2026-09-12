@@ -6,6 +6,7 @@ export type {
   Lyrics,
   LyricsLookupParams,
   SavedLyric,
+  SavedArtist,
   SearchResult,
   ArtistsQueryParams,
   SongsQueryParams,

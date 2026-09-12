@@ -99,7 +99,7 @@ export const ArtistCard = memo(function ArtistCard({
         onPress={onFavoriteToggle}
         accessibilityRole="button"
         accessibilityLabel={favorited ? `Unfavorite ${name}` : `Add ${name} to favorites`}
-        style={[styles.favBtn, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}
+        style={styles.favBtn}
       >
         {favorited ? '♥' : '♡'}
       </AppText>
@@ -144,12 +144,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: spacing.sm,
     right: spacing.sm,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    padding: spacing.xs,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
     zIndex: 2,
   },
 });

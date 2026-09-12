@@ -15,6 +15,8 @@ import { useArtists } from '@/hooks';
 import { useTheme } from '@/hooks/useTheme';
 import { enrichArtistImage } from '@/services/deezer/deezerApi';
 import { mapPool } from '@/data/catalog/featuredCatalog';
+import { useSavedStore } from '@/store';
+import { toggleSavedArtist } from '@/store/savedLyricsActions';
 import { spacing, radii } from '@/theme';
 import type { ArtistsStackParamList } from '@/app/navigationTypes';
 import type { Artist } from '@/types';
@@ -54,6 +56,7 @@ export default function ArtistsScreen({ navigation }: Readonly<Props>) {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [page, setPage] = useState(1);
   const [displayArtists, setDisplayArtists] = useState<Artist[]>([]);
+  const artistMap = useSavedStore((state) => state.artistMap);
 
   // Debounce typed name before hitting iTunes.
   useEffect(() => {
@@ -80,9 +83,8 @@ export default function ArtistsScreen({ navigation }: Readonly<Props>) {
   const suggestions = useMemo(() => {
     const typed = searchInput.trim().toLowerCase();
     if (typed.length < MIN_SEARCH_CHARS) return EMPTY_ARTISTS;
-    return artists
-      .filter((artist) => artist.name.toLowerCase().includes(typed))
-      .slice(0, MAX_SUGGESTIONS);
+    // Repository already matches artist name OR song title.
+    return artists.slice(0, MAX_SUGGESTIONS);
   }, [artists, searchInput]);
 
   const showSuggestions =
@@ -181,6 +183,15 @@ export default function ArtistsScreen({ navigation }: Readonly<Props>) {
       initial={avatarInitial(item.name)}
       imageUrl={item.imageUrl}
       alternateGradient={index % 2 === 1}
+      favorited={Boolean(artistMap[item.id])}
+      onFavoriteToggle={() =>
+        toggleSavedArtist({
+          artistId: item.id,
+          artistName: item.name,
+          songCount: item.songCount,
+          imageUrl: item.imageUrl,
+        })
+      }
       onPress={() => handleArtistPress(item)}
     />
   );
@@ -219,7 +230,7 @@ export default function ArtistsScreen({ navigation }: Readonly<Props>) {
         <AppSearchBar
           value={searchInput}
           onChangeText={handleSearchChange}
-          placeholder="Type artist name..."
+          placeholder="Search artists or songs..."
           active={isSearchActive || isTypingSearch}
           onFocus={() => setIsSearchActive(true)}
           onBlur={() => {

@@ -1,23 +1,27 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import type { SavedLyric } from '@/types';
+import type { SavedArtist, SavedLyric } from '@/types';
 import { mmkvStorage } from './mmkvStorage';
 
 interface SavedStore {
-  /** Saved lyrics keyed by song ID for O(1) lookups. */
   savedMap: Record<string, SavedLyric>;
-
-  /** Ordered list of song IDs (newest first). */
   savedOrder: string[];
 
-  /* ── Actions ─────────────────────────────────────────────────── */
+  artistMap: Record<string, SavedArtist>;
+  artistOrder: string[];
+
   saveLyric: (entry: SavedLyric) => void;
   removeLyric: (songId: string) => void;
   isSaved: (songId: string) => boolean;
   getSavedList: () => SavedLyric[];
+
+  saveArtist: (entry: SavedArtist) => void;
+  removeArtist: (artistId: string) => void;
+  isArtistSaved: (artistId: string) => boolean;
+  getSavedArtists: () => SavedArtist[];
+
   clearAll: () => void;
 
-  /** Hydration state (true once storage rehydrated). */
   hasHydrated: boolean;
   setHasHydrated: (hasHydrated: boolean) => void;
 }
@@ -27,6 +31,8 @@ export const useSavedStore = create<SavedStore>()(
     (set, get) => ({
       savedMap: {},
       savedOrder: [],
+      artistMap: {},
+      artistOrder: [],
 
       saveLyric: (entry) =>
         set((state) => ({
@@ -51,12 +57,39 @@ export const useSavedStore = create<SavedStore>()(
 
       getSavedList: () => {
         const { savedMap, savedOrder } = get();
-        return savedOrder
-          .map((id) => savedMap[id])
-          .filter(Boolean) as SavedLyric[];
+        return savedOrder.map((id) => savedMap[id]).filter(Boolean) as SavedLyric[];
       },
 
-      clearAll: () => set({ savedMap: {}, savedOrder: [] }),
+      saveArtist: (entry) =>
+        set((state) => ({
+          artistMap: { ...state.artistMap, [entry.artistId]: entry },
+          artistOrder: [
+            entry.artistId,
+            ...state.artistOrder.filter((id) => id !== entry.artistId),
+          ],
+        })),
+
+      removeArtist: (artistId) =>
+        set((state) => {
+          const rest = { ...state.artistMap };
+          delete rest[artistId];
+          return {
+            artistMap: rest,
+            artistOrder: state.artistOrder.filter((id) => id !== artistId),
+          };
+        }),
+
+      isArtistSaved: (artistId) => artistId in get().artistMap,
+
+      getSavedArtists: () => {
+        const { artistMap, artistOrder } = get();
+        return artistOrder
+          .map((id) => artistMap[id])
+          .filter(Boolean) as SavedArtist[];
+      },
+
+      clearAll: () =>
+        set({ savedMap: {}, savedOrder: [], artistMap: {}, artistOrder: [] }),
 
       hasHydrated: false,
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),

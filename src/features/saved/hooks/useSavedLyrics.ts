@@ -1,35 +1,36 @@
 import { useMemo } from 'react';
 import { useSavedStore } from '@/store';
+import type { SavedArtist } from '@/types';
 import type { SavedTab, SavedLyricItem } from '../types';
 
 interface UseSavedLyricsResult {
   items: SavedLyricItem[];
+  artists: SavedArtist[];
   isEmpty: boolean;
   removeLyric: (songId: string) => void;
+  removeArtist: (artistId: string) => void;
 }
 
 /**
- * Combines savedStore state with tab-specific sorting.
- *
- * - 'recentlySaved': newest first (store's natural order)
- * - 'mostViewed': sorted descending by viewCount
+ * Saved lyrics + saved artists for the Saved tab.
  */
 export function useSavedLyrics(tab: SavedTab): UseSavedLyricsResult {
   const savedMap = useSavedStore((s) => s.savedMap);
   const savedOrder = useSavedStore((s) => s.savedOrder);
+  const artistMap = useSavedStore((s) => s.artistMap);
+  const artistOrder = useSavedStore((s) => s.artistOrder);
   const removeLyric = useSavedStore((s) => s.removeLyric);
+  const removeArtist = useSavedStore((s) => s.removeArtist);
 
   const items = useMemo<SavedLyricItem[]>(() => {
-    const list = savedOrder
-      .map((id) => savedMap[id])
-      .filter(Boolean) as SavedLyricItem[];
+    return savedOrder.map((id) => savedMap[id]).filter(Boolean) as SavedLyricItem[];
+  }, [savedMap, savedOrder]);
 
-    if (tab === 'mostViewed') {
-      return [...list].sort((a, b) => b.viewCount - a.viewCount);
-    }
+  const artists = useMemo<SavedArtist[]>(() => {
+    return artistOrder.map((id) => artistMap[id]).filter(Boolean) as SavedArtist[];
+  }, [artistMap, artistOrder]);
 
-    return list;
-  }, [savedMap, savedOrder, tab]);
+  const isEmpty = tab === 'savedArtists' ? artists.length === 0 : items.length === 0;
 
-  return { items, isEmpty: items.length === 0, removeLyric };
+  return { items, artists, isEmpty, removeLyric, removeArtist };
 }

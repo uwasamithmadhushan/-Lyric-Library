@@ -27,9 +27,12 @@ import { fetchMediaJson } from '@/services/media/mediaProxy';
 import {
   buildLocalCatalogArtists,
   buildLocalCatalogSongs,
+  getCatalogAlbum,
   getCatalogEntry,
+  parseCatalogAlbumId,
   parseCatalogArtistId,
   parseCatalogSongId,
+  toCatalogAlbumId,
   toCatalogArtistId,
   toCatalogSongId,
 } from '@/data/catalog/featuredCatalog';
@@ -84,6 +87,72 @@ function mapItunesSong(song: ItunesSongResult): Song {
     artworkUrl: upscaleArtworkUrl(song.artworkUrl100, 300),
     previewUrl: song.previewUrl,
   };
+}
+
+function isNoiseAlbumTitle(title: string): boolean {
+  return /commentary|instrumental|track by track|remix ep|karaoke|acoustic collection/i.test(
+    title,
+  );
+}
+
+function mapCatalogAlbums(artistName: string, artistId: string): Album[] {
+  const entry = getCatalogEntry(artistName);
+  const albums = (entry?.albums ?? [])
+    .filter((album) => album.songs.length > 0 && !isNoiseAlbumTitle(album.name))
+    .map((album) => ({
+      id: toCatalogAlbumId(artistName, album.name),
+      title: album.name,
+      artistId,
+      artistName,
+      releaseYear: album.year ?? 0,
+      songCount: album.songs.length,
+    }));
+
+  // Keep at most 8 studio-ish albums for a clean detail screen.
+  return albums.slice(0, 8);
+}
+
+function mapCatalogSongsForArtist(artistName: string): Song[] {
+  const entry = getCatalogEntry(artistName);
+  if (!entry) return [];
+
+  const artistId = toCatalogArtistId(entry.artist);
+  const seen = new Set<string>();
+  const songs: Song[] = [];
+
+  for (const title of entry.songs) {
+    const key = title.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    songs.push({
+      id: toCatalogSongId(entry.artist, title),
+      title,
+      artistId,
+      artistName: entry.artist,
+    });
+  }
+
+  // Pull a few album cuts so popular list isn't only singles.
+  for (const album of entry.albums ?? []) {
+    for (const title of album.songs.slice(0, 4)) {
+      const key = title.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      songs.push({
+        id: toCatalogSongId(entry.artist, title),
+        title,
+        artistId,
+        artistName: entry.artist,
+        albumId: toCatalogAlbumId(entry.artist, album.name),
+        albumTitle: album.name,
+        releaseYear: album.year,
+      });
+      if (songs.length >= 20) break;
+    }
+    if (songs.length >= 20) break;
+  }
+
+  return songs;
 }
 
 /**
@@ -201,12 +270,13 @@ export class ItunesLyricsRepository implements LyricsRepository {
     const catalogName = parseCatalogArtistId(id);
     if (catalogName) {
       const entry = getCatalogEntry(catalogName);
-      // Local catalog first — never wait on iTunes for browse/detail reliability.
+      const albums = mapCatalogAlbums(catalogName, id);
+      const songCount = Math.max(entry?.songs.length ?? 0, mapCatalogSongsForArtist(catalogName).length);
       return this.rememberArtist({
         id,
         name: catalogName,
-        songCount: entry?.songs.length ?? 0,
-        albums: [],
+        songCount,
+        albums,
       });
     }
 
@@ -242,6 +312,27 @@ export class ItunesLyricsRepository implements LyricsRepository {
     }
 
     if (normalized.albumId) {
+      const catalogAlbum = parseCatalogAlbumId(normalized.albumId);
+      if (catalogAlbum) {
+        const album = getCatalogAlbum(catalogAlbum.artistName, catalogAlbum.albumName);
+        if (!album) return [];
+        const artistId = toCatalogArtistId(catalogAlbum.artistName);
+        const songs = album.songs.map((title) =>
+          this.rememberSongs([
+            {
+              id: toCatalogSongId(catalogAlbum.artistName, title),
+              title,
+              artistId,
+              artistName: catalogAlbum.artistName,
+              albumId: normalized.albumId,
+              albumTitle: album.name,
+              releaseYear: album.year,
+            },
+          ])[0],
+        );
+        return this.sortSongs(songs, normalized.sort);
+      }
+
       try {
         const tracks = await lookupAlbumSongs(normalized.albumId);
         return this.sortSongs(this.rememberSongs(tracks.map(mapItunesSong)), normalized.sort);
@@ -273,16 +364,7 @@ export class ItunesLyricsRepository implements LyricsRepository {
     const entry = catalogName ? getCatalogEntry(catalogName) : undefined;
 
     if (entry) {
-      return entry.songs.map((title) =>
-        this.rememberSongs([
-          {
-            id: toCatalogSongId(entry.artist, title),
-            title,
-            artistId: toCatalogArtistId(entry.artist),
-            artistName: entry.artist,
-          },
-        ])[0],
-      );
+      return this.rememberSongs(mapCatalogSongsForArtist(entry.artist));
     }
 
     const artistName = knownName ?? this.artistCache.get(artistId)?.name;

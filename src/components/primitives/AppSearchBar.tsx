@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, TextInput, StyleSheet, Pressable } from 'react-native';
+import { View, TextInput, StyleSheet, Pressable, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { spacing, radii, shadows, textVariants } from '@/theme';
 import { useTheme } from '@/hooks/useTheme';
@@ -42,19 +42,29 @@ export function AppSearchBar({
         active ? styles.containerActive : styles.containerInactive,
       ]}
     >
-      {/* Search icon */}
       <Feather name="search" size={18} color={colors.textTertiary} />
 
       <TextInput
-        style={styles.input}
+        style={[
+          styles.input,
+          {
+            color: colors.textPrimary,
+            // RN Web can inherit black text from the browser UA stylesheet in dark mode.
+            ...(Platform.OS === 'web'
+              ? ({ caretColor: colors.primary, outlineStyle: 'none' } as object)
+              : null),
+          },
+        ]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={colors.textTertiary}
+        selectionColor={colors.primary}
         onFocus={onFocus}
         onBlur={onBlur}
         returnKeyType="search"
         autoCorrect={false}
+        autoCapitalize="none"
         accessibilityLabel={placeholder}
       />
 
@@ -66,8 +76,12 @@ export function AppSearchBar({
           accessibilityRole="button"
         >
           <View style={styles.clearBtn}>
-            <View style={[styles.clearLine, styles.clearLine1]} />
-            <View style={[styles.clearLine, styles.clearLine2]} />
+            <View
+              style={[styles.clearLine, styles.clearLine1, { backgroundColor: colors.textSecondary }]}
+            />
+            <View
+              style={[styles.clearLine, styles.clearLine2, { backgroundColor: colors.textSecondary }]}
+            />
           </View>
         </Pressable>
       )}

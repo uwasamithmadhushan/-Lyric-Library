@@ -1,51 +1,59 @@
 import { useState, useEffect, useMemo } from 'react';
-import artistsJson from '@/data/mock/artists.json';
-import songsJson   from '@/data/mock/songs.json';
+import {
+  FEATURED_CATALOG,
+  buildLocalCatalogArtists,
+  buildLocalCatalogSongs,
+  toCatalogArtistId,
+} from '@/data/catalog/featuredCatalog';
 import type { Song, Artist, Album } from '@/types';
 import type { UseSearchParams, UseSearchReturn, SearchResults } from '../types';
 
-// ─── Typed mock data ──────────────────────────────────────────────────────────
-const rawSongs    = songsJson    as unknown as Song[];
-const rawArtists  = artistsJson  as unknown as Artist[];
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 function normalize(s: string) {
   return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
 }
 
-function searchMockData(query: string, type: UseSearchParams['type']): SearchResults {
+function searchCatalog(query: string, type: UseSearchParams['type']): SearchResults {
   const q = normalize(query);
 
-  const songs =
+  const songs: Song[] =
     type === 'artist' || type === 'album'
       ? []
-      : rawSongs.filter(
-          (s) =>
-            normalize(s.title).includes(q) ||
-            normalize(s.artistName).includes(q) ||
-            normalize(s.albumTitle ?? '').includes(q),
-        );
+      : buildLocalCatalogSongs({ query: q }).map((item) => ({
+          id: item.id,
+          title: item.title,
+          artistId: item.artistId,
+          artistName: item.artistName,
+        }));
 
-  const artists =
+  const artists: Artist[] =
     type === 'song' || type === 'album'
       ? []
-      : rawArtists.filter((a) => normalize(a.name).includes(q));
+      : buildLocalCatalogArtists({ query: q }).map((item) => ({
+          id: item.id,
+          name: item.name,
+          songCount: item.songCount,
+          albums: [],
+        }));
 
   const albums: Album[] =
     type === 'song' || type === 'artist'
       ? []
-      : rawArtists
-          .flatMap((a) => a.albums)
-          .filter(
-            (al) =>
-              normalize(al.title).includes(q) ||
-              normalize(al.artistName).includes(q),
-          );
+      : FEATURED_CATALOG.filter(
+          (entry) =>
+            normalize(entry.artist).includes(q) ||
+            entry.songs.some((song) => normalize(song).includes(q)),
+        ).map((entry) => ({
+          id: `album-${toCatalogArtistId(entry.artist)}`,
+          title: `${entry.artist} Essentials`,
+          artistId: toCatalogArtistId(entry.artist),
+          artistName: entry.artist,
+          releaseYear: 0,
+          songCount: entry.songs.length,
+        }));
 
   return { songs, artists, albums };
 }
 
-// ─── Hook ────────────────────────────────────────────────────────────────────
 const DEBOUNCE_MS = 300;
 
 export function useSearch({ query, type }: UseSearchParams): UseSearchReturn {
@@ -64,15 +72,15 @@ export function useSearch({ query, type }: UseSearchParams): UseSearchReturn {
 
   const results = useMemo<SearchResults>(() => {
     if (!trimmed) return { songs: [], artists: [], albums: [] };
-    return searchMockData(trimmed, type);
+    return searchCatalog(trimmed, type);
   }, [trimmed, type]);
 
   const total = results.songs.length + results.artists.length + results.albums.length;
 
   return {
     results,
-    isLoading:    false,
-    isEmpty:      !trimmed,
+    isLoading: false,
+    isEmpty: !trimmed,
     hasNoResults: !!trimmed && total === 0,
   };
 }

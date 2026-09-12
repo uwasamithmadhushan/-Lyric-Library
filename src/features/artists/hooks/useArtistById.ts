@@ -41,7 +41,7 @@ async function fetchArtistById(artistId: string): Promise<Artist> {
 
   const popularSongs: Song[] = [...artistSongs]
     .sort((left, right) => (right.popularity ?? 0) - (left.popularity ?? 0))
-    .slice(0, 8)
+    .slice(0, 16)
     .map((song) => ({
       id: song.id,
       title: song.title,
