@@ -17,6 +17,7 @@ import {
   lookupAlbumSongs,
   lookupArtistArtwork,
   searchMusicArtists,
+  searchSongs,
   searchSongsByArtistName,
   upscaleArtworkUrl,
   type ItunesAlbumResult,
@@ -25,6 +26,7 @@ import {
 } from '@/services/itunes/itunesApi';
 import { fetchLyricsByTrack } from '@/services/lyrics/lyricsApi';
 import { plainTextToLyrics } from '@/services/lyrics/parseLyrics';
+
 /** Curated popular artists shown when browse has no search query. */
 const FEATURED_ARTIST_IDS = [
   159260351, // Taylor Swift
@@ -37,6 +39,25 @@ const FEATURED_ARTIST_IDS = [
   137057909, // Miley Cyrus
   1065981054, // Billie Eilish
   278873078, // Bruno Mars
+];
+
+/** Seed queries for the Songs browse screen when no search term is set. */
+const FEATURED_SONG_QUERIES = [
+  'Anti-Hero Taylor Swift',
+  'Cruel Summer Taylor Swift',
+  'Hello Adele',
+  'Easy On Me Adele',
+  'Blinding Lights The Weeknd',
+  'Save Your Tears The Weeknd',
+  'Shape of You Ed Sheeran',
+  'Flowers Miley Cyrus',
+  'As It Was Harry Styles',
+  'Levitating Dua Lipa',
+  'bad guy Billie Eilish',
+  'Peaches Justin Bieber',
+  'drivers license Olivia Rodrigo',
+  'Stay The Kid LAROI',
+  'Heat Waves Glass Animals',
 ];
 
 function yearFromIso(iso?: string): number {
@@ -190,13 +211,60 @@ export class ItunesLyricsRepository implements LyricsRepository {
     if (normalized.albumId) {
       try {
         const tracks = await lookupAlbumSongs(normalized.albumId);
-        return this.rememberSongs(tracks.map(mapItunesSong));
+        return this.sortSongs(this.rememberSongs(tracks.map(mapItunesSong)), normalized.sort);
       } catch {
         return this.mock.getSongs(params);
       }
     }
 
-    return this.mock.getSongs(params);
+    try {
+      let tracks: ItunesSongResult[] = [];
+
+      if (normalized.query?.trim()) {
+        tracks = await searchSongs(normalized.query.trim(), 50);
+      } else if (normalized.genre?.trim()) {
+        tracks = await searchSongs(normalized.genre.trim(), 50);
+      } else {
+        const batches = await Promise.all(
+          FEATURED_SONG_QUERIES.map((term) => searchSongs(term, 3)),
+        );
+        tracks = batches.flat();
+      }
+
+      const seen = new Set<string>();
+      const mapped = tracks
+        .map(mapItunesSong)
+        .filter((song) => {
+          if (seen.has(song.id)) return false;
+          seen.add(song.id);
+          return true;
+        });
+
+      return this.sortSongs(this.rememberSongs(mapped), normalized.sort);
+    } catch {
+      return this.mock.getSongs(params);
+    }
+  }
+
+  private sortSongs(songs: Song[], sort?: SongSortMode): Song[] {
+    const sorted = [...songs];
+    switch (sort) {
+      case 'genre':
+        sorted.sort((a, b) => (a.genre ?? '').localeCompare(b.genre ?? '') || a.title.localeCompare(b.title));
+        break;
+      case 'recent':
+        sorted.sort((a, b) => (b.releaseYear ?? 0) - (a.releaseYear ?? 0) || a.title.localeCompare(b.title));
+        break;
+      case 'popular':
+        // iTunes search order is already relevance-ish; keep stable title fallback.
+        sorted.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+      case 'title':
+      default:
+        sorted.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+    }
+    return sorted;
   }
 
   async getSongsByArtist(artistId: string, knownName?: string): Promise<Song[]> {

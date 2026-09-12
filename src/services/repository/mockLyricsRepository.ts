@@ -28,8 +28,8 @@ const FAKE_DELAY = 350;
 const delay = (ms: number = FAKE_DELAY) =>
   new Promise<void>((r) => setTimeout(r, ms));
 
-const ARTIST_TARGET_COUNT = 60;
-const SONG_TARGET_COUNT = 125;
+const ARTIST_TARGET_COUNT = 0;
+const SONG_TARGET_COUNT = 0;
 
 function cloneArtist(artist: Artist, cloneIndex: number): Artist {
   const suffix = `-x${cloneIndex}`;

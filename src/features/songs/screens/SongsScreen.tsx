@@ -52,8 +52,16 @@ export default function SongsScreen() {
 
   const { data: songs, isLoading, isError } = useSongs({ sort, query });
 
-  // Filter and group songs
-  const filteredSongs = useMemo(() => songs ?? [], [songs]);
+  // Dedupe by id in case repository returns overlapping entries
+  const filteredSongs = useMemo(() => {
+    const list = songs ?? [];
+    const seen = new Set<string>();
+    return list.filter((song) => {
+      if (!song.id || seen.has(song.id)) return false;
+      seen.add(song.id);
+      return true;
+    });
+  }, [songs]);
   // group songs by first letter while preserving the original Song object so we can act on favorites
   const grouped = useMemo(() => {
     if (!filteredSongs.length) return [] as { title: string; data: Song[] }[];
@@ -67,10 +75,7 @@ export default function SongsScreen() {
 
   return (
     <AppScreen style={screenStyle}>
-      <AppText variant="pageTitle" style={[styles.title, isSmallScreen && styles.titleSmall]}> 
-        Songs
-      </AppText>
-      <AppText variant="pageSubtitle" style={[styles.subtitle, isSmallScreen && styles.subtitleSmall]}> 
+      <AppText variant="pageSubtitle" style={[styles.subtitle, isSmallScreen && styles.subtitleSmall]}>
         Browse all available lyrics
       </AppText>
 
@@ -157,23 +162,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  title: {
-    marginTop: 8,
-    marginBottom: 0,
-  },
-  titleSmall: {
-    fontSize: 28,
-  },
   subtitle: {
-    marginBottom: 16,
+    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
   },
   subtitleSmall: {
     fontSize: 14,
   },
   searchBar: {
     marginBottom: 12,
-  },
-  chipRowWrapper: {
+  },  chipRowWrapper: {
     marginBottom: 8,
   },
   chipRow: {

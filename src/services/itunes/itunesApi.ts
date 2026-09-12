@@ -98,6 +98,21 @@ export async function lookupArtistAlbums(
   );
 }
 
+export async function searchSongs(
+  term: string,
+  limit = 50,
+): Promise<ItunesSongResult[]> {
+  const trimmed = term.trim();
+  if (!trimmed) return [];
+
+  const url =
+    `${ITUNES_BASE}/search?term=${encodeURIComponent(trimmed)}` +
+    `&entity=song&limit=${limit}`;
+
+  const results = await itunesFetch<ItunesSongResult>(url);
+  return results.filter((item) => item.trackId && item.trackName && item.artistName);
+}
+
 export async function searchSongsByArtistName(
   artistName: string,
   limit = 25,
