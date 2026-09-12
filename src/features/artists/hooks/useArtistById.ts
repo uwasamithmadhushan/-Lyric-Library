@@ -23,6 +23,7 @@ export interface Artist {
   songCount: number;
   popularSongs: Song[];
   albums: Album[];
+  imageUrl?: string;
 }
 
 // ─── Repository ───────────────────────────────────────────────────────────────
@@ -62,6 +63,7 @@ async function fetchArtistById(artistId: string): Promise<Artist> {
     songCount: artistData.songCount,
     popularSongs,
     albums,
+    imageUrl: artistData.imageUrl,
   };
 }
 

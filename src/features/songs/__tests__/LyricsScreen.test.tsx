@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, waitFor } from '@testing-library/react-native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { SongsStackParamList } from '@/app/navigationTypes';
@@ -11,6 +11,14 @@ jest.mock('@/components', () => {
     AppScreen: ({ children }: { children: React.ReactNode }) => <View>{children}</View>,
     AppText: ({ children }: { children: React.ReactNode }) => <Text>{children}</Text>,
     AppButton: ({ label }: { label: string }) => <Text>{label}</Text>,
+    LoadingState: ({ message }: { message?: string }) => <Text>{message}</Text>,
+    ErrorState: ({ message }: { message?: string }) => <Text>{message}</Text>,
+    EmptyState: ({ title, subtitle }: { title: string; subtitle?: string }) => (
+      <View>
+        <Text>{title}</Text>
+        {subtitle ? <Text>{subtitle}</Text> : null}
+      </View>
+    ),
   };
 });
 
@@ -30,20 +38,43 @@ jest.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
+jest.mock('@/hooks', () => ({
+  useLyrics: () => ({
+    data: {
+      songId: '1',
+      songTitle: 'Hello',
+      artistName: 'Adele',
+      sections: [
+        {
+          type: 'verse',
+          label: 'Lyrics',
+          lines: ["Hello, it's me", "I'm in California dreaming"],
+        },
+      ],
+    },
+    isLoading: false,
+    isFetching: false,
+    isError: false,
+    refetch: jest.fn(),
+  }),
+}));
+
 import LyricsScreen from '@/features/songs/screens/LyricsScreen';
 
 describe('LyricsScreen', () => {
-  it('renders the Anti-Hero lyric page', () => {
+  it('renders lyrics loaded from the API hook', async () => {
     const mockRoute: RouteProp<SongsStackParamList, 'Lyrics'> = {
       key: 'test',
       name: 'Lyrics',
-      params: { songId: 'anti-hero', songTitle: 'Anti-Hero', artistName: 'Taylor Swift' },
+      params: { songId: '1', songTitle: 'Hello', artistName: 'Adele' },
     };
 
     const mockNav = {} as unknown as NativeStackNavigationProp<SongsStackParamList, 'Lyrics'>;
     const { getByText } = render(<LyricsScreen route={mockRoute} navigation={mockNav} />);
 
-    expect(getByText('Anti-Hero')).toBeTruthy();
-    expect(getByText(/I'm the problem/)).toBeTruthy();
+    await waitFor(() => {
+      expect(getByText('Hello')).toBeTruthy();
+      expect(getByText(/Hello, it's me/)).toBeTruthy();
+    });
   });
 });

@@ -1,8 +1,9 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, FlatList, Pressable, useWindowDimensions } from 'react-native';
 import { AppScreen, AppText, AppSearchBar, ArtistCard, Chip } from '@/components';
-import { spacing } from '@/theme';
+import { spacing, radii } from '@/theme';
 import { useTheme } from '@/hooks/useTheme';
+import { useArtists } from '@/hooks';
 import type { RootTabParamList } from '@/app/navigationTypes';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -15,14 +16,6 @@ const FEATURED = [
   { id: 's4', title: 'Someone Like You', artist: 'Adele' },
 ];
 
-const ARTISTS = [
-  { id: 'a1', name: 'Taylor Swift', songCount: 178 },
-  { id: 'a2', name: 'Adele', songCount: 64 },
-  { id: 'a3', name: 'The Weeknd', songCount: 112 },
-  { id: 'a4', name: 'Ed Sheeran', songCount: 95 },
-  { id: 'a5', name: 'Miley Cyrus', songCount: 81 },
-];
-
 const GENRES = ['Pop', 'Rock', 'Hip Hop', 'R&B', 'Country', 'Jazz'];
 
 export default function HomeScreen() {
@@ -31,6 +24,7 @@ export default function HomeScreen() {
   const [recent, setRecent] = useState(() => getRecentlyViewed().slice(0, 5));
   const [favorites, setFavorites] = useState(() => getFavorites().slice(0, 5));
   const [query, setQuery] = useState('');
+  const { data: popularArtists = [] } = useArtists();
 
   useFocusEffect(
     useCallback(() => {
@@ -39,7 +33,9 @@ export default function HomeScreen() {
     }, [])
   );
   const { width } = useWindowDimensions();
-  const horizontalPadding = Math.max(20, Math.min(80, Math.floor(width * 0.06)));
+  const horizontalPadding = Math.max(spacing.xl, Math.min(spacing.massive, Math.floor(width * 0.05)));
+  const featureCardWidth = Math.min(200, Math.max(168, Math.floor(width * 0.42)));
+  const artistCardWidth = Math.min(156, Math.max(136, Math.floor(width * 0.36)));
   const normalizedQuery = query.trim().toLowerCase();
 
   const filteredFeatured = useMemo(() => {
@@ -52,9 +48,10 @@ export default function HomeScreen() {
   }, [normalizedQuery]);
 
   const filteredArtists = useMemo(() => {
-    if (!normalizedQuery) return ARTISTS;
-    return ARTISTS.filter((item) => item.name.toLowerCase().includes(normalizedQuery));
-  }, [normalizedQuery]);
+    const artists = popularArtists.slice(0, 8);
+    if (!normalizedQuery) return artists;
+    return artists.filter((item) => item.name.toLowerCase().includes(normalizedQuery));
+  }, [normalizedQuery, popularArtists]);
 
   const filteredGenres = useMemo(() => {
     if (!normalizedQuery) return GENRES;
@@ -67,11 +64,20 @@ export default function HomeScreen() {
     filteredGenres.length > 0;
 
   return (
-    <AppScreen backgroundColor={colors.bgSecondary}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.container, { paddingHorizontal: horizontalPadding }]}>
+    <AppScreen backgroundColor={colors.bgSecondary} padded={false} style={styles.screen}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.container,
+          {
+            paddingHorizontal: horizontalPadding,
+            paddingBottom: spacing.massive + spacing.lg,
+          },
+        ]}
+      >
         <View style={[styles.hero, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
           <AppText variant="pageTitle">Lyric Library</AppText>
-          <AppText variant="pageSubtitle" color={colors.textSecondary}>
+          <AppText variant="pageSubtitle" color={colors.textSecondary} style={styles.heroSubtitle}>
             Discover and save your favorite lyrics
           </AppText>
 
@@ -90,32 +96,52 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.searchRow}>
-          <AppSearchBar placeholder="Search songs, artists, genres..." value={query} onChangeText={setQuery} active={query.length > 0} />
+          <AppSearchBar
+            placeholder="Search songs, artists, genres..."
+            value={query}
+            onChangeText={setQuery}
+            active={query.length > 0}
+          />
         </View>
 
         {!hasResults && normalizedQuery.length > 0 ? (
           <View style={[styles.emptyStateCard, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
             <AppText variant="itemTitle">No matches found</AppText>
-            <AppText variant="itemMeta" color={colors.textTertiary}>
+            <AppText variant="itemMeta" color={colors.textTertiary} style={styles.emptyCopy}>
               Try a different song, artist, or genre.
             </AppText>
           </View>
         ) : null}
 
         <Section title="Featured Lyrics">
-            <FlatList
+          <FlatList
             data={filteredFeatured}
             horizontal
-            keyExtractor={item => item.id}
+            keyExtractor={(item) => item.id}
             showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.hListContent}
             renderItem={({ item }) => (
               <Pressable
-                onPress={() => navigation.navigate('HomeTab', { screen: 'Lyrics', params: { songId: item.id, songTitle: item.title, artistName: item.artist } })}
+                onPress={() =>
+                  navigation.navigate('HomeTab', {
+                    screen: 'Lyrics',
+                    params: { songId: item.id, songTitle: item.title, artistName: item.artist },
+                  })
+                }
                 style={({ pressed }) => [styles.cardPressable, pressed && styles.cardPressed]}
               >
-                <View style={[styles.featureCard, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
-                  <AppText variant="itemMeta" color={colors.textTertiary}>{item.artist}</AppText>
-                  <AppText variant="pageSubtitle">{item.title}</AppText>
+                <View
+                  style={[
+                    styles.featureCard,
+                    { width: featureCardWidth, backgroundColor: colors.bgElevated, borderColor: colors.border },
+                  ]}
+                >
+                  <AppText variant="itemMeta" color={colors.textTertiary} numberOfLines={1}>
+                    {item.artist}
+                  </AppText>
+                  <AppText variant="itemTitle" numberOfLines={2} style={styles.cardTitle}>
+                    {item.title}
+                  </AppText>
                 </View>
               </Pressable>
             )}
@@ -126,15 +152,22 @@ export default function HomeScreen() {
           <FlatList
             data={filteredArtists}
             horizontal
-            keyExtractor={item => item.id}
+            keyExtractor={(item) => item.id}
             showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.hListContent}
             renderItem={({ item }) => (
-              <View style={styles.artistCardWrap}>
+              <View style={[styles.artistCardWrap, { width: artistCardWidth }]}>
                 <ArtistCard
                   name={item.name}
                   songCount={item.songCount}
                   initial={item.name.charAt(0)}
-                  onPress={() => navigation.navigate('ArtistsTab', { screen: 'ArtistDetail', params: { artistId: item.id, artistName: item.name } })}
+                  imageUrl={item.imageUrl}
+                  onPress={() =>
+                    navigation.navigate('ArtistsTab', {
+                      screen: 'ArtistDetail',
+                      params: { artistId: item.id, artistName: item.name },
+                    })
+                  }
                 />
               </View>
             )}
@@ -144,25 +177,49 @@ export default function HomeScreen() {
         <Section title="Browse by Genre">
           <View style={styles.genreRow}>
             {filteredGenres.map((g) => (
-              <Chip key={g} label={g} onPress={() => navigation.navigate('SearchTab', { screen: 'SearchMain' })} />
+              <Chip key={g} label={g} onPress={() => navigation.navigate('HomeTab', { screen: 'SearchMain' })} />
             ))}
           </View>
         </Section>
 
         <Section title="Recently Viewed">
           {recent.length === 0 ? (
-            <AppText variant="pageSubtitle" color={colors.textTertiary}>No recently viewed songs</AppText>
+            <AppText variant="pageSubtitle" color={colors.textTertiary}>
+              No recently viewed songs
+            </AppText>
           ) : (
             <FlatList
               data={recent}
               horizontal
               showsHorizontalScrollIndicator={false}
-              keyExtractor={item => item.songId}
+              contentContainerStyle={styles.hListContent}
+              keyExtractor={(item) => item.songId}
               renderItem={({ item }) => (
-                <Pressable onPress={() => navigation.navigate('HomeTab', { screen: 'Lyrics', params: { songId: item.songId, songTitle: item.songTitle, artistName: item.artistName ?? '' } })}>
-                  <View style={[styles.recentCard, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
-                    <AppText variant="itemMeta">{item.artistName}</AppText>
-                    <AppText variant="pageSubtitle">{item.songTitle}</AppText>
+                <Pressable
+                  onPress={() =>
+                    navigation.navigate('HomeTab', {
+                      screen: 'Lyrics',
+                      params: {
+                        songId: item.songId,
+                        songTitle: item.songTitle,
+                        artistName: item.artistName ?? '',
+                      },
+                    })
+                  }
+                  style={({ pressed }) => [styles.cardPressable, pressed && styles.cardPressed]}
+                >
+                  <View
+                    style={[
+                      styles.recentCard,
+                      { width: featureCardWidth, backgroundColor: colors.bgElevated, borderColor: colors.border },
+                    ]}
+                  >
+                    <AppText variant="itemMeta" color={colors.textTertiary} numberOfLines={1}>
+                      {item.artistName}
+                    </AppText>
+                    <AppText variant="itemTitle" numberOfLines={2} style={styles.cardTitle}>
+                      {item.songTitle}
+                    </AppText>
                   </View>
                 </Pressable>
               )}
@@ -172,25 +229,48 @@ export default function HomeScreen() {
 
         <Section title="Favorites">
           {favorites.length === 0 ? (
-            <AppText variant="pageSubtitle" color={colors.textTertiary}>No favorites yet</AppText>
+            <AppText variant="pageSubtitle" color={colors.textTertiary}>
+              No favorites yet
+            </AppText>
           ) : (
             <FlatList
               data={favorites}
               horizontal
               showsHorizontalScrollIndicator={false}
-              keyExtractor={item => item.id}
+              contentContainerStyle={styles.hListContent}
+              keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
-                <Pressable onPress={() => navigation.navigate('HomeTab', { screen: 'Lyrics', params: { songId: item.id, songTitle: item.title, artistName: item.artistName ?? '' } })}>
-                  <View style={[styles.featureCard, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
-                    <AppText variant="itemMeta">{item.artistName}</AppText>
-                    <AppText variant="pageSubtitle">{item.title}</AppText>
+                <Pressable
+                  onPress={() =>
+                    navigation.navigate('HomeTab', {
+                      screen: 'Lyrics',
+                      params: {
+                        songId: item.id,
+                        songTitle: item.title,
+                        artistName: item.artistName ?? '',
+                      },
+                    })
+                  }
+                  style={({ pressed }) => [styles.cardPressable, pressed && styles.cardPressed]}
+                >
+                  <View
+                    style={[
+                      styles.featureCard,
+                      { width: featureCardWidth, backgroundColor: colors.bgElevated, borderColor: colors.border },
+                    ]}
+                  >
+                    <AppText variant="itemMeta" color={colors.textTertiary} numberOfLines={1}>
+                      {item.artistName}
+                    </AppText>
+                    <AppText variant="itemTitle" numberOfLines={2} style={styles.cardTitle}>
+                      {item.title}
+                    </AppText>
                   </View>
                 </Pressable>
               )}
             />
           )}
         </Section>
-
       </ScrollView>
     </AppScreen>
   );
@@ -200,21 +280,31 @@ function Section({ title, children }: Readonly<{ title: string; children: React.
   const { colors } = useTheme();
   return (
     <View style={[styles.section, { backgroundColor: colors.bgPrimary, borderColor: colors.border }]}>
-      <AppText variant="sectionHeader" color={colors.textTertiary}>{title}</AppText>
+      <AppText variant="sectionHeader" color={colors.textTertiary} style={styles.sectionTitle}>
+        {title}
+      </AppText>
       {children}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    paddingTop: spacing.sm,
+  },
   container: {
-    padding: spacing.xxl,
-    gap: spacing.lg,
+    paddingTop: spacing.lg,
+    gap: spacing.xl,
   },
   hero: {
-    padding: spacing.xl,
-    borderRadius: 24,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xxl,
+    borderRadius: radii.xl + 8,
     borderWidth: 1,
+    gap: spacing.sm,
+  },
+  heroSubtitle: {
+    marginTop: spacing.xs,
   },
   heroActions: {
     flexDirection: 'row',
@@ -224,48 +314,67 @@ const styles = StyleSheet.create({
   },
   heroBadge: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: 999,
+    paddingVertical: spacing.s,
+    borderRadius: radii.full,
   },
   searchRow: {
     marginTop: spacing.xs,
   },
+  hListContent: {
+    paddingRight: spacing.sm,
+    gap: spacing.md,
+  },
   featureCard: {
-    padding: spacing.lg,
-    borderRadius: 12,
-    marginRight: 12,
-    minWidth: 180,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderRadius: radii.lg,
     borderWidth: 1,
+    minHeight: 88,
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  cardTitle: {
+    marginTop: spacing.xs,
   },
   artistCardWrap: {
-    marginRight: 12,
+    marginRight: spacing.md,
   },
   genreRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
     flexWrap: 'wrap',
-    marginTop: spacing.sm,
   },
   recentCard: {
-    padding: spacing.lg,
-    borderRadius: 12,
-    marginRight: 12,
-    minWidth: 160,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderRadius: radii.lg,
     borderWidth: 1,
+    minHeight: 88,
+    justifyContent: 'center',
+    gap: spacing.xs,
   },
   section: {
-    marginBottom: spacing.lg,
-    borderRadius: 20,
-    padding: spacing.md,
+    borderRadius: radii.xl,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
     borderWidth: 1,
+    gap: spacing.md,
+  },
+  sectionTitle: {
+    marginBottom: spacing.xs,
   },
   emptyStateCard: {
-    padding: spacing.lg,
-    borderRadius: 16,
+    padding: spacing.xl,
+    borderRadius: radii.xl,
     borderWidth: 1,
+    gap: spacing.sm,
+  },
+  emptyCopy: {
+    marginTop: spacing.xs,
   },
   cardPressable: {
-    marginRight: 12,
+    marginRight: spacing.md,
   },
   cardPressed: {
     opacity: 0.92,

@@ -1,5 +1,5 @@
-import React, { memo } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import React, { memo, useState } from 'react';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { spacing, radii, shadows, gradients } from '@/theme';
 import { useTheme } from '@/hooks/useTheme';
@@ -12,6 +12,8 @@ interface ArtistCardProps {
   songCount: number;
   /** First letter for avatar */
   initial: string;
+  /** Optional artwork URL (album cover fallback from iTunes) */
+  imageUrl?: string;
   /** Use alternate gradient (gradient2 vs gradient1) */
   alternateGradient?: boolean;
   /** Press handler (navigate to detail) */
@@ -30,6 +32,7 @@ export const ArtistCard = memo(function ArtistCard({
   name,
   songCount,
   initial,
+  imageUrl,
   alternateGradient = false,
   onPress,
   favorited = false,
@@ -40,7 +43,9 @@ export const ArtistCard = memo(function ArtistCard({
     ? gradients.gradient2
     : gradients.gradient1;
 
-  const [focused, setFocused] = React.useState(false);
+  const [focused, setFocused] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
+  const showImage = Boolean(imageUrl) && !imageFailed;
 
   return (
     <View style={styles.wrapper}>
@@ -57,16 +62,25 @@ export const ArtistCard = memo(function ArtistCard({
         accessibilityRole="button"
         accessibilityLabel={`${name}, ${songCount} songs`}
       >
-        <LinearGradient
-          colors={[...selectedGradient.colors]}
-          start={selectedGradient.start}
-          end={selectedGradient.end}
-          style={styles.avatar}
-        >
-          <AppText variant="avatarLetterSmall" color={colors.white}>
-            {initial}
-          </AppText>
-        </LinearGradient>
+        {showImage ? (
+          <Image
+            source={{ uri: imageUrl }}
+            style={styles.avatar}
+            onError={() => setImageFailed(true)}
+            accessibilityIgnoresInvertColors
+          />
+        ) : (
+          <LinearGradient
+            colors={[...selectedGradient.colors]}
+            start={selectedGradient.start}
+            end={selectedGradient.end}
+            style={styles.avatar}
+          >
+            <AppText variant="avatarLetterSmall" color={colors.white}>
+              {initial}
+            </AppText>
+          </LinearGradient>
+        )}
         <AppText variant="cardTitle" center numberOfLines={1}>
           {name}
         </AppText>
@@ -93,17 +107,20 @@ const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
     position: 'relative',
+    minWidth: 0,
   },
   card: {
     flex: 1,
-    aspectRatio: 0.9,
+    minHeight: 168,
     borderRadius: radii.xl,
-    paddingVertical: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
     paddingHorizontal: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     margin: spacing.xs,
+    gap: spacing.xs,
     ...shadows.card,
   },
   pressed: {
@@ -116,7 +133,8 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm + 2,
+    marginBottom: spacing.sm,
+    overflow: 'hidden',
   },
   favBtn: {
     position: 'absolute',

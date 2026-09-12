@@ -2,6 +2,7 @@ import {
   Artist,
   Song,
   Lyrics,
+  LyricsLookupParams,
   SearchResult,
   SongSortMode,
   ArtistsQueryParams,
@@ -11,7 +12,6 @@ import {
 
 /**
  * Abstract repository interface for the Lyric Library data layer.
- * Sprint 1 uses MockLyricsRepository; Sprint 3 can swap in an API-backed one.
  */
 export interface LyricsRepository {
   /* ── Artists ─────────────────────────────────────────────────── */
@@ -24,7 +24,7 @@ export interface LyricsRepository {
   getSongById(id: string): Promise<Song | undefined>;
 
   /* ── Lyrics ─────────────────────────────────────────────────── */
-  getLyrics(songId: string): Promise<Lyrics | undefined>;
+  getLyrics(params: LyricsLookupParams | string): Promise<Lyrics | undefined>;
 
   /* ── Search ─────────────────────────────────────────────────── */
   search(

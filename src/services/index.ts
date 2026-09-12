@@ -1,2 +1,5 @@
 export type { LyricsRepository } from './repository/LyricsRepository';
-export { MockLyricsRepository, lyricsRepository } from './repository/mockLyricsRepository';
+export { MockLyricsRepository } from './repository/mockLyricsRepository';
+export { ItunesLyricsRepository, lyricsRepository } from './repository/itunesLyricsRepository';
+export * from './itunes/itunesApi';
+export * from './lyrics/lyricsApi';

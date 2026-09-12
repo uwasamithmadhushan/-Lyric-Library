@@ -213,8 +213,9 @@ export class MockLyricsRepository implements LyricsRepository {
   }
 
   /* Lyrics */
-  async getLyrics(songId: string): Promise<Lyrics | undefined> {
+  async getLyrics(params: import('@/types').LyricsLookupParams | string) {
     await delay();
+    const songId = typeof params === 'string' ? params : params.songId;
     return lyrics[songId];
   }
 
@@ -313,6 +314,3 @@ export class MockLyricsRepository implements LyricsRepository {
     return results;
   }
 }
-
-/** Singleton instance used throughout the app. */
-export const lyricsRepository = new MockLyricsRepository();

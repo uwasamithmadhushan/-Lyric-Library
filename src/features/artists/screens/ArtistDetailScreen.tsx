@@ -1,6 +1,6 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { View, ScrollView, StyleSheet, TouchableOpacity, Pressable } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Pressable, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppScreen, AppText, SongRow, LoadingState, ErrorState } from '@/components';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -50,6 +50,7 @@ export default function ArtistDetailScreen({ route, navigation }: Props) {
   const { colors } = useTheme();
   const { artistId, artistName } = route.params;
   const { data: artist, isLoading, isError, refetch } = useArtistById(artistId);
+  const [imageFailed, setImageFailed] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -106,16 +107,27 @@ export default function ArtistDetailScreen({ route, navigation }: Props) {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator>
         <View style={styles.header}>
-          <LinearGradient
-            colors={[...gradients.gradient1.colors]}
-            start={gradients.gradient1.start}
-            end={gradients.gradient1.end}
-            style={styles.avatar}
-          >
-            <AppText variant="avatarLetter" color={colors.white}>
-              {artist.name.charAt(0).toUpperCase()}
-            </AppText>
-          </LinearGradient>
+          {artist.imageUrl && !imageFailed ? (
+            <View style={styles.avatar}>
+              <Image
+                source={{ uri: artist.imageUrl }}
+                style={styles.avatarImage}
+                onError={() => setImageFailed(true)}
+                accessibilityIgnoresInvertColors
+              />
+            </View>
+          ) : (
+            <LinearGradient
+              colors={[...gradients.gradient1.colors]}
+              start={gradients.gradient1.start}
+              end={gradients.gradient1.end}
+              style={styles.avatar}
+            >
+              <AppText variant="avatarLetter" color={colors.white}>
+                {artist.name.charAt(0).toUpperCase()}
+              </AppText>
+            </LinearGradient>
+          )}
 
           <AppText variant="detailTitle" center>
             {artist.name}
@@ -179,7 +191,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.lg,
+    overflow: 'hidden',
     ...shadows.avatarGlow,
+  },
+  avatarImage: {
+    width: 120,
+    height: 120,
+    borderRadius: radii.full,
   },
   sectionHeader: {
     marginTop: spacing.md,

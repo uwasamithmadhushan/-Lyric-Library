@@ -18,7 +18,7 @@ import { colors, spacing, radii, shadows } from '@/theme';
 import { useSearch } from '../hooks/useSearch';
 import type { UseSearchParams } from '../types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { SearchStackParamList } from '@/app/navigationTypes';
+import type { HomeStackParamList } from '@/app/navigationTypes';
 import type { Song, Artist, Album } from '@/types';
 
 // ─── Avatar colors keyed by first letter — no field needed ───────────────────
@@ -33,7 +33,7 @@ function avatarColor(seed: string): string {
 }
 
 // ─── Navigation ──────────────────────────────────────────────────────────────
-type SearchNavProp = NativeStackNavigationProp<SearchStackParamList>;
+type SearchNavProp = NativeStackNavigationProp<HomeStackParamList>;
 
 // Fix 1: Props marked as read-only
 interface SearchScreenProps {

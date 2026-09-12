@@ -11,7 +11,6 @@ import type {
   HomeStackParamList,
   ArtistsStackParamList,
   SongsStackParamList,
-  SearchStackParamList,
   SavedStackParamList,
 } from './navigationTypes';
 
@@ -28,7 +27,6 @@ import SavedScreen from '@/features/saved/screens/SavedScreen';
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const ArtistsStack = createNativeStackNavigator<ArtistsStackParamList>();
 const SongsStack = createNativeStackNavigator<SongsStackParamList>();
-const SearchStack = createNativeStackNavigator<SearchStackParamList>();
 const SavedStack = createNativeStackNavigator<SavedStackParamList>();
 
 type FeatherName = React.ComponentProps<typeof Feather>['name'];
@@ -37,7 +35,6 @@ const TAB_ICONS: Record<keyof RootTabParamList, FeatherName> = {
   HomeTab: 'home',
   ArtistsTab: 'users',
   SongsTab: 'music',
-  SearchTab: 'search',
   SavedTab: 'bookmark',
   ProfileTab: 'user',
 };
@@ -59,6 +56,9 @@ function HomeStackNavigator() {
   return (
     <HomeStack.Navigator screenOptions={screenOptions}>
       <HomeStack.Screen name="HomeMain" component={HomeScreen} options={{ title: 'Home' }} />
+      <HomeStack.Screen name="SearchMain" component={SearchScreen} options={{ title: 'Search' }} />
+      <HomeStack.Screen name="ArtistDetail" component={ArtistDetailScreen} />
+      <HomeStack.Screen name="AlbumDetail" component={AlbumDetailScreen} />
       <HomeStack.Screen name="Lyrics" component={LyricsScreen} options={{ title: 'Lyrics' }} />
     </HomeStack.Navigator>
   );
@@ -83,18 +83,6 @@ function SongsStackNavigator() {
       <SongsStack.Screen name="SongsList" component={SongsScreen} options={{ title: 'Songs' }} />
       <SongsStack.Screen name="Lyrics" component={LyricsScreen} options={{ title: 'Lyrics' }} />
     </SongsStack.Navigator>
-  );
-}
-
-function SearchStackNavigator() {
-  const screenOptions = useStackScreenOptions();
-  return (
-    <SearchStack.Navigator screenOptions={screenOptions}>
-      <SearchStack.Screen name="SearchMain" component={SearchScreen} options={{ title: 'Search' }} />
-      <SearchStack.Screen name="ArtistDetail" component={ArtistDetailScreen} />
-      <SearchStack.Screen name="AlbumDetail" component={AlbumDetailScreen} />
-      <SearchStack.Screen name="Lyrics" component={LyricsScreen} options={{ title: 'Lyrics' }} />
-    </SearchStack.Navigator>
   );
 }
 
@@ -155,7 +143,6 @@ export function AppNavigator() {
       <Tab.Screen name="HomeTab" component={HomeStackNavigator} options={{ tabBarLabel: 'Home' }} />
       <Tab.Screen name="ArtistsTab" component={ArtistsStackNavigator} options={{ tabBarLabel: 'Artists' }} />
       <Tab.Screen name="SongsTab" component={SongsStackNavigator} options={{ tabBarLabel: 'Songs' }} />
-      <Tab.Screen name="SearchTab" component={SearchStackNavigator} options={{ tabBarLabel: 'Search' }} />
       <Tab.Screen name="SavedTab" component={SavedStackNavigator} options={{ tabBarLabel: 'Saved' }} />
       <Tab.Screen name="ProfileTab" component={ProfileSettingsScreen} options={{ tabBarLabel: 'Profile' }} />
     </Tab.Navigator>
@@ -169,7 +156,7 @@ function HeaderActions() {
   return (
     <View style={styles.headerActions}>
       <Pressable
-        onPress={() => navigation.navigate('SearchTab', { screen: 'SearchMain' })}
+        onPress={() => navigation.navigate('HomeTab', { screen: 'SearchMain' })}
         accessibilityRole="button"
         accessibilityLabel="Open search"
         hitSlop={8}

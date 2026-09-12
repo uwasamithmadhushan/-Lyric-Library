@@ -23,6 +23,9 @@ export type SongsStackParamList = {
 
 export type HomeStackParamList = {
   HomeMain: undefined;
+  SearchMain: undefined;
+  ArtistDetail: { artistId: string; artistName: string };
+  AlbumDetail: { albumId: string; albumName: string; artistId: string; artistName: string };
   Lyrics: { songId: string; songTitle: string; artistName: string };
 };
 
@@ -66,7 +69,6 @@ export type RootTabParamList = {
   HomeTab: NavigatorScreenParams<HomeStackParamList>;
   ArtistsTab: NavigatorScreenParams<ArtistsStackParamList>;
   SongsTab: NavigatorScreenParams<SongsStackParamList>;
-  SearchTab: NavigatorScreenParams<SearchStackParamList>;
   SavedTab: NavigatorScreenParams<SavedStackParamList>;
   ProfileTab: undefined;
 };

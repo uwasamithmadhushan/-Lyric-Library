@@ -57,6 +57,7 @@ export default function ArtistsScreen({ navigation }: Readonly<Props>) {
         name={item.name}
         songCount={item.songCount}
         initial={initial}
+        imageUrl={item.imageUrl}
         alternateGradient={index % 2 === 1}
         onPress={() => handleArtistPress(item)}
       />

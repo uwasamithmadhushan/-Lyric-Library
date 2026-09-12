@@ -8,6 +8,8 @@ export interface Artist {
   name: string;
   songCount: number;
   albums: Album[];
+  /** Optional artwork (iTunes artist endpoint has none — usually album cover) */
+  imageUrl?: string;
 }
 
 export interface Album {
@@ -17,6 +19,7 @@ export interface Album {
   artistName: string;
   releaseYear: number;
   songCount: number;
+  artworkUrl?: string;
 }
 
 export interface Song {
@@ -29,6 +32,7 @@ export interface Song {
   releaseYear?: number;
   genre?: string;
   popularity?: number;
+  artworkUrl?: string;
 }
 
 export interface LyricsSection {
@@ -43,6 +47,12 @@ export interface Lyrics {
   artistName: string;
   albumTitle?: string;
   sections: LyricsSection[];
+}
+
+export interface LyricsLookupParams {
+  songId: string;
+  songTitle?: string;
+  artistName?: string;
 }
 
 export interface SavedLyric {
