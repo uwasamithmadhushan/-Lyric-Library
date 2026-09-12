@@ -57,3 +57,4 @@ More details in [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - [docs/COMPONENTS.md](docs/COMPONENTS.md)
 - [docs/BRANCH_WORKFLOW.md](docs/BRANCH_WORKFLOW.md)
 - [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+# -Lyric-Library
