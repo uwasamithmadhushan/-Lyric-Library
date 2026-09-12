@@ -6,6 +6,7 @@ import {
   SongSortMode,
   ArtistsQueryParams,
   SongsQueryParams,
+  SearchFilterType,
 } from '@/types';
 
 /**
@@ -26,5 +27,8 @@ export interface LyricsRepository {
   getLyrics(songId: string): Promise<Lyrics | undefined>;
 
   /* ── Search ─────────────────────────────────────────────────── */
-  search(query: string): Promise<SearchResult[]>;
+  search(
+    query: string,
+    types?: SearchFilterType | SearchFilterType[]
+  ): Promise<SearchResult[]>;
 }

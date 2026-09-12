@@ -7,6 +7,7 @@ import type {
   SongSortMode,
   ArtistsQueryParams,
   SongsQueryParams,
+  SearchFilterType,
 } from '@/types';
 
 import artistsData from '@/data/mock/artists.json';
@@ -106,6 +107,20 @@ const scaledSongs = buildScaledSongs(songs, scaledArtists);
 
 /* ── Mock implementation ───────────────────────────────────────── */
 export class MockLyricsRepository implements LyricsRepository {
+  /* ── Private helpers ─────────────────────────────────────────── */
+
+  /**
+   * Normalize search filter types to an array.
+   */
+  private normalizeSearchTypes(
+    types?: SearchFilterType | SearchFilterType[],
+  ): SearchFilterType[] {
+    if (!types) {
+      return ['artist', 'song', 'lyrics', 'album'];
+    }
+    return Array.isArray(types) ? types : [types];
+  }
+
   /* Artists */
   async getArtists(params?: ArtistsQueryParams): Promise<Artist[]> {
     await delay();
@@ -204,66 +219,96 @@ export class MockLyricsRepository implements LyricsRepository {
   }
 
   /* Search */
-  async search(query: string): Promise<SearchResult[]> {
+  async search(
+    query: string,
+    types?: SearchFilterType | SearchFilterType[],
+  ): Promise<SearchResult[]> {
     await delay(200);
     const q = query.toLowerCase().trim();
     if (!q) return [];
 
+    // Normalize types to array
+    const typeArray: SearchFilterType[] = this.normalizeSearchTypes(types);
+    const includeAll = typeArray.includes('all') || typeArray.length === 0;
+
     const results: SearchResult[] = [];
 
     // Search artists
-    scaledArtists.forEach((artist) => {
-      if (artist.name.toLowerCase().includes(q)) {
-        results.push({
-          id: `result-artist-${artist.id}`,
-          type: 'artist',
-          title: artist.name,
-          subtitle: `${artist.songCount} songs`,
-          referenceId: artist.id,
-        });
-      }
-    });
+    if (includeAll || typeArray.includes('artist')) {
+      scaledArtists.forEach((artist) => {
+        if (artist.name.toLowerCase().includes(q)) {
+          results.push({
+            id: `result-artist-${artist.id}`,
+            type: 'artist',
+            title: artist.name,
+            subtitle: `${artist.songCount} songs`,
+            referenceId: artist.id,
+          });
+        }
+      });
+    }
 
     // Search songs
-    scaledSongs.forEach((song) => {
-      if (
-        song.title.toLowerCase().includes(q) ||
-        song.artistName.toLowerCase().includes(q)
-      ) {
-        results.push({
-          id: `result-song-${song.id}`,
-          type: 'song',
-          title: song.title,
-          subtitle: song.artistName,
-          referenceId: song.id,
-        });
-      }
-    });
+    if (includeAll || typeArray.includes('song')) {
+      scaledSongs.forEach((song) => {
+        if (
+          song.title.toLowerCase().includes(q) ||
+          song.artistName.toLowerCase().includes(q)
+        ) {
+          results.push({
+            id: `result-song-${song.id}`,
+            type: 'song',
+            title: song.title,
+            subtitle: song.artistName,
+            referenceId: song.id,
+          });
+        }
+      });
+    }
 
-    // Search lyrics
-    Object.values(lyrics).forEach((lyricsEntry) => {
-      const match = lyricsEntry.sections.some((section) =>
-        section.lines.some((line) => line.toLowerCase().includes(q)),
-      );
-      if (match) {
-        const song = scaledSongs.find((s) => s.id === lyricsEntry.songId);
-        if (song) {
-          // avoid duplicate if song was already matched by title
-          const alreadyAdded = results.some(
-            (r) => r.type === 'song' && r.referenceId === song.id,
-          );
-          if (!alreadyAdded) {
+    // Search albums
+    if (includeAll || typeArray.includes('album')) {
+      scaledArtists.forEach((artist) => {
+        artist.albums.forEach((album) => {
+          if (album.title.toLowerCase().includes(q)) {
             results.push({
-              id: `result-lyric-${song.id}`,
-              type: 'lyrics',
-              title: song.title,
-              subtitle: `${song.artistName} · lyrics match`,
-              referenceId: song.id,
+              id: `result-album-${album.id}`,
+              type: 'album',
+              title: album.title,
+              subtitle: `${artist.name} · ${album.releaseYear}`,
+              referenceId: album.id,
             });
           }
+        });
+      });
+    }
+
+    // Search lyrics
+    if (includeAll || typeArray.includes('lyrics')) {
+      Object.values(lyrics).forEach((lyricsEntry) => {
+        const match = lyricsEntry.sections.some((section) =>
+          section.lines.some((line) => line.toLowerCase().includes(q)),
+        );
+        if (match) {
+          const song = scaledSongs.find((s) => s.id === lyricsEntry.songId);
+          if (song) {
+            // avoid duplicate if song was already matched by title
+            const alreadyAdded = results.some(
+              (r) => r.type === 'song' && r.referenceId === song.id,
+            );
+            if (!alreadyAdded) {
+              results.push({
+                id: `result-lyric-${song.id}`,
+                type: 'lyrics',
+                title: song.title,
+                subtitle: `${song.artistName} · lyrics match`,
+                referenceId: song.id,
+              });
+            }
+          }
         }
-      }
-    });
+      });
+    }
 
     return results;
   }
