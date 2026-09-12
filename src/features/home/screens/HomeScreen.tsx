@@ -16,11 +16,11 @@ const FEATURED = [
 ];
 
 const ARTISTS = [
-  { id: 'a1', name: 'Taylor Swift' },
-  { id: 'a2', name: 'Adele' },
-  { id: 'a3', name: 'The Weeknd' },
-  { id: 'a4', name: 'Ed Sheeran' },
-  { id: 'a5', name: 'Miley Cyrus' },
+  { id: 'a1', name: 'Taylor Swift', songCount: 178 },
+  { id: 'a2', name: 'Adele', songCount: 64 },
+  { id: 'a3', name: 'The Weeknd', songCount: 112 },
+  { id: 'a4', name: 'Ed Sheeran', songCount: 95 },
+  { id: 'a5', name: 'Miley Cyrus', songCount: 81 },
 ];
 
 const GENRES = ['Pop', 'Rock', 'Hip Hop', 'R&B', 'Country', 'Jazz'];
@@ -132,7 +132,7 @@ export default function HomeScreen() {
               <View style={styles.artistCardWrap}>
                 <ArtistCard
                   name={item.name}
-                  songCount={Math.floor(Math.random() * 200) + 20}
+                  songCount={item.songCount}
                   initial={item.name.charAt(0)}
                   onPress={() => navigation.navigate('ArtistsTab', { screen: 'ArtistDetail', params: { artistId: item.id, artistName: item.name } })}
                 />
@@ -196,7 +196,7 @@ export default function HomeScreen() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children }: Readonly<{ title: string; children: React.ReactNode }>) {
   const { colors } = useTheme();
   return (
     <View style={[styles.section, { backgroundColor: colors.bgPrimary, borderColor: colors.border }]}>

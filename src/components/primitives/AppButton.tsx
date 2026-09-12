@@ -40,12 +40,12 @@ export function AppButton({
   const isDisabled = disabled || loading;
   const [focused, setFocused] = useState(false);
 
-  const backgroundColor =
-    variant === 'primary'
-      ? colors.primary
-      : variant === 'secondary'
-        ? colors.primaryLight
-        : colors.transparent;
+  let backgroundColor = colors.transparent;
+  if (variant === 'primary') {
+    backgroundColor = colors.primary;
+  } else if (variant === 'secondary') {
+    backgroundColor = colors.primaryLight;
+  }
 
   const shadowStyle = {
     boxShadow: focused

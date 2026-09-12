@@ -24,9 +24,16 @@ const FILTER_OPTIONS = ALPHABET;
  *  - Grid layout with ArtistCard components
  *  - Navigation to ArtistDetail screen
  */
+function getArtistGridColumns(width: number): number {
+  if (width >= 1200) return 5;
+  if (width >= 900) return 4;
+  if (width >= 600) return 3;
+  return 2;
+}
+
 export default function ArtistsScreen({ navigation }: Readonly<Props>) {
   const { width } = useWindowDimensions();
-  const numColumns = width >= 1200 ? 5 : width >= 900 ? 4 : width >= 600 ? 3 : 2;
+  const numColumns = getArtistGridColumns(width);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLetter, setSelectedLetter] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false);

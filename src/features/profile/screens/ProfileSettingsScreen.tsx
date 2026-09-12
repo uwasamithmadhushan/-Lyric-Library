@@ -205,8 +205,12 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.lg,
     padding: spacing.xl,
+  },
+  heroCard: {
+    width: '100%',
+    borderRadius: radii.xl,
+    padding: spacing.xl,
     borderWidth: 1,
-    borderColor: colors.border,
     alignItems: 'flex-start',
     gap: spacing.sm,
     ...shadows.card,

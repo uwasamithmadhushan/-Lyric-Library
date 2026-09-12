@@ -9,7 +9,22 @@ import { useNavigation } from '@react-navigation/native';
 
 const GENRES = [
   'Pop','Rock','Hip Hop','R&B','Country','Jazz','Electronic','Indie','Classical','K-Pop','Alternative','Soul'
-];
+] as const;
+
+const GENRE_SONG_COUNTS: Record<(typeof GENRES)[number], number> = {
+  Pop: 186,
+  Rock: 142,
+  'Hip Hop': 168,
+  'R&B': 97,
+  Country: 74,
+  Jazz: 53,
+  Electronic: 121,
+  Indie: 88,
+  Classical: 41,
+  'K-Pop': 109,
+  Alternative: 116,
+  Soul: 62,
+};
 
 export default function GenresScreen() {
   const { colors } = useTheme();
@@ -40,7 +55,7 @@ export default function GenresScreen() {
           renderItem={({ item }) => (
             <Pressable onPress={() => navigation.navigate('GenreDetail', { genre: item })} style={[styles.card, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
               <AppText variant="pageSubtitle">{item}</AppText>
-              <AppText variant="itemMeta">{Math.floor(Math.random()*200)+20} songs</AppText>
+              <AppText variant="itemMeta">{GENRE_SONG_COUNTS[item]} songs</AppText>
             </Pressable>
           )}
         />

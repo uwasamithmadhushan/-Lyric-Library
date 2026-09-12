@@ -32,11 +32,11 @@ export function EmptyState({ title, subtitle }: Readonly<EmptyStateProps>) {
       <AppText variant="detailTitle" center>
         {title}
       </AppText>
-      {subtitle && (
+      {subtitle ? (
         <AppText variant="pageSubtitle" center style={styles.message}>
           {subtitle}
         </AppText>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -60,9 +60,9 @@ export function ErrorState({
       <AppText variant="pageSubtitle" center style={styles.message}>
         {message}
       </AppText>
-      {onRetry && (
+      {onRetry ? (
         <AppButton label="Try Again" variant="primary" onPress={onRetry} style={styles.retryBtn} />
-      )}
+      ) : null}
     </View>
   );
 }
