@@ -238,6 +238,7 @@ export default function LyricsScreen({ route }: Readonly<Props>) {
         </View>
 
         <SongPlayer
+          variant="preview"
           title={displayTitle}
           artistName={displayArtist}
           albumTitle={lyrics.albumTitle || song?.albumTitle}
@@ -254,6 +255,16 @@ export default function LyricsScreen({ route }: Readonly<Props>) {
           ink={colors.textPrimary}
           muted={colors.textTertiary}
           rule={colors.border}
+        />
+
+        <SongPlayer
+          variant="full-listen"
+          title={displayTitle}
+          artistName={displayArtist}
+          albumTitle={lyrics.albumTitle || song?.albumTitle}
+          artworkUrl={song?.artworkUrl}
+          previewUrl={song?.previewUrl}
+          isTrackLoading={isSongLoading}
         />
       </ScrollView>
     </AppScreen>

@@ -39,7 +39,11 @@ export const useSongById = (
       // Fallback resolve by title/artist (covers legacy ids + missing previews).
       if (songTitle && artistName) {
         const { searchDeezerTrack } = await import('@/services/deezer/deezerApi');
-        const deezer = await searchDeezerTrack(songTitle, artistName);
+        const { normalizeForLyricsLookup } = await import('@/services/lyrics/lyricsApi');
+        const cleaned = normalizeForLyricsLookup(artistName, songTitle);
+        const deezer =
+          (await searchDeezerTrack(cleaned.songTitle, cleaned.artistName)) ??
+          (await searchDeezerTrack(songTitle, artistName));
         if (!deezer?.previewUrl) return song;
         return {
           id: songId,

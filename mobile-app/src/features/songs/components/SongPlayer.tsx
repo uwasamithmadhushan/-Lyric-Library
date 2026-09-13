@@ -7,6 +7,7 @@ import {
   Animated,
   Easing,
   LayoutChangeEvent,
+  Linking,
 } from 'react-native';
 import { Audio, type AVPlaybackStatus } from 'expo-av';
 import { Feather } from '@expo/vector-icons';
@@ -32,11 +33,14 @@ interface SongPlayerProps {
   artworkUrl?: string;
   previewUrl?: string;
   isTrackLoading?: boolean;
+  /** `preview` = optional ~30s in-app clip; `full-listen` = licensed apps for the complete song. */
+  variant?: 'preview' | 'full-listen';
 }
 
 /**
- * Full-screen style now-playing card with beat bars + scrubber.
- * Uses iTunes preview stream (API does not expose licensed full tracks).
+ * Audio helpers for lyrics screen.
+ * In-app play is preview-only (~30s). Full tracks open in licensed apps (Spotify / YouTube / Deezer).
+ * Spotify Web API does not provide downloadable full MP3 files.
  */
 export function SongPlayer({
   title,
@@ -45,6 +49,7 @@ export function SongPlayer({
   artworkUrl,
   previewUrl,
   isTrackLoading = false,
+  variant = 'preview',
 }: Readonly<SongPlayerProps>) {
   const { colors } = useTheme();
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -60,6 +65,11 @@ export function SongPlayer({
   const [durationMs, setDurationMs] = useState(0);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [artworkFailed, setArtworkFailed] = useState(false);
+
+  const query = `${artistName} ${title}`.trim();
+  const spotifyFullUrl = `https://open.spotify.com/search/${encodeURIComponent(query)}`;
+  const deezerFullUrl = `https://www.deezer.com/search/${encodeURIComponent(query)}`;
+  const youtubeFullUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
 
   useEffect(() => {
     Audio.setAudioModeAsync({
@@ -128,7 +138,7 @@ export function SongPlayer({
   const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
     if (!status.isLoaded) {
       if (status.error) {
-        setAudioError('Could not play this track.');
+        setAudioError('Could not play this preview.');
         setIsPlaying(false);
       }
       return;
@@ -146,7 +156,7 @@ export function SongPlayer({
 
   const ensureSound = async () => {
     if (!previewUrl) {
-      setAudioError('No playable audio found for this song.');
+      setAudioError('No 30s preview available. Use Listen full song below the lyrics.');
       return null;
     }
     if (soundRef.current) return soundRef.current;
@@ -161,7 +171,7 @@ export function SongPlayer({
       soundRef.current = sound;
       return sound;
     } catch {
-      setAudioError('Could not load audio stream.');
+      setAudioError('Could not load preview audio.');
       return null;
     } finally {
       setIsLoadingAudio(false);
@@ -182,7 +192,10 @@ export function SongPlayer({
       return;
     }
 
-    if (status.didJustFinish || (status.durationMillis && status.positionMillis >= status.durationMillis - 200)) {
+    if (
+      status.didJustFinish ||
+      (status.durationMillis && status.positionMillis >= status.durationMillis - 200)
+    ) {
       await sound.setPositionAsync(0);
     }
     await sound.playAsync();
@@ -199,167 +212,254 @@ export function SongPlayer({
     setPositionMs(nextPosition);
   };
 
+  const openFullSong = async (url: string) => {
+    try {
+      await Linking.openURL(url);
+    } catch {
+      setAudioError('Could not open the music app link.');
+    }
+  };
+
   const progress = durationMs > 0 ? positionMs / durationMs : 0;
   const showArt = Boolean(artworkUrl) && !artworkFailed;
 
-  return (
-    <View style={[styles.card, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
-      <LinearGradient
-        colors={[colors.primary, colors.primaryDark]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.hero}
-      >
-        <View style={styles.artWrap}>
-          {showArt ? (
-            <Image
-              source={{ uri: artworkUrl }}
-              style={styles.artwork}
-              onError={() => setArtworkFailed(true)}
-            />
-          ) : (
-            <View style={[styles.artwork, styles.artworkFallback, { backgroundColor: colors.primaryLight }]}>
-              <AppText variant="avatarLetter" color={colors.white}>
-                {title.charAt(0).toUpperCase()}
-              </AppText>
+  if (variant === 'full-listen') {
+    return (
+      <View style={styles.wrap}>
+        <AppText variant="sectionHeader" color={colors.textTertiary} style={styles.sectionEyebrow}>
+          LISTEN FULL SONG
+        </AppText>
+        <View style={[styles.card, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
+          <View style={styles.body}>
+            <AppText variant="itemTitle" color={colors.textPrimary} numberOfLines={2}>
+              {title}
+            </AppText>
+            <AppText variant="itemMeta" color={colors.textSecondary} numberOfLines={1}>
+              {artistName}
+              {albumTitle ? ` · ${albumTitle}` : ''}
+            </AppText>
+            <AppText variant="itemMeta" color={colors.textTertiary}>
+              Full original tracks play in licensed apps (Spotify, YouTube, Deezer). Apps cannot
+              legally stream or download complete MP3 files from the Spotify API.
+            </AppText>
+            <View style={styles.fullSongRow}>
+              <Pressable
+                onPress={() => void openFullSong(spotifyFullUrl)}
+                style={[styles.fullSongBtn, { backgroundColor: colors.primary }]}
+                accessibilityRole="link"
+                accessibilityLabel="Open full song on Spotify"
+              >
+                <Feather name="external-link" size={16} color={colors.white} />
+                <AppText variant="actionLabel" color={colors.white}>
+                  Spotify
+                </AppText>
+              </Pressable>
+              <Pressable
+                onPress={() => void openFullSong(youtubeFullUrl)}
+                style={[styles.fullSongBtnSecondary, { borderColor: colors.border }]}
+                accessibilityRole="link"
+                accessibilityLabel="Open full song on YouTube"
+              >
+                <Feather name="play-circle" size={16} color={colors.textSecondary} />
+                <AppText variant="actionLabel" color={colors.textSecondary}>
+                  YouTube
+                </AppText>
+              </Pressable>
+              <Pressable
+                onPress={() => void openFullSong(deezerFullUrl)}
+                style={[styles.fullSongBtnSecondary, { borderColor: colors.border }]}
+                accessibilityRole="link"
+                accessibilityLabel="Open full song on Deezer"
+              >
+                <Feather name="music" size={16} color={colors.textSecondary} />
+                <AppText variant="actionLabel" color={colors.textSecondary}>
+                  Deezer
+                </AppText>
+              </Pressable>
             </View>
-          )}
+            {audioError ? (
+              <AppText variant="itemMeta" color={colors.error} center>
+                {audioError}
+              </AppText>
+            ) : null}
+          </View>
         </View>
+      </View>
+    );
+  }
 
-        <AppText variant="itemMeta" color={colors.white} style={styles.nowPlaying}>
-          Now Playing
-        </AppText>
-        <AppText variant="pageTitle" color={colors.white} numberOfLines={2} style={styles.title}>
-          {title}
-        </AppText>
-        <AppText variant="pageSubtitle" color={colors.white} numberOfLines={1}>
-          {artistName}
-          {albumTitle ? ` · ${albumTitle}` : ''}
-        </AppText>
-      </LinearGradient>
+  return (
+    <View style={styles.wrap}>
+      <AppText variant="sectionHeader" color={colors.textTertiary} style={styles.sectionEyebrow}>
+        30S PREVIEW
+      </AppText>
 
-      <View style={styles.body}>
-        <View style={styles.beatRow}>
-          {barAnims.map((anim, index) => (
-            <Animated.View
-              key={`beat-${index}`}
+      <View style={[styles.card, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
+        <LinearGradient
+          colors={[colors.primary, colors.primaryDark]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.hero}
+        >
+          <View style={styles.artWrap}>
+            {showArt ? (
+              <Image
+                source={{ uri: artworkUrl }}
+                style={styles.artwork}
+                onError={() => setArtworkFailed(true)}
+              />
+            ) : (
+              <View
+                style={[styles.artwork, styles.artworkFallback, { backgroundColor: colors.primaryLight }]}
+              >
+                <AppText variant="avatarLetter" color={colors.white}>
+                  {title.charAt(0).toUpperCase()}
+                </AppText>
+              </View>
+            )}
+          </View>
+
+          <AppText variant="itemMeta" color={colors.white} style={styles.nowPlaying}>
+            Optional preview
+          </AppText>
+          <AppText variant="pageTitle" color={colors.white} numberOfLines={2} style={styles.title}>
+            {title}
+          </AppText>
+          <AppText variant="pageSubtitle" color={colors.white} numberOfLines={1}>
+            {artistName}
+            {albumTitle ? ` · ${albumTitle}` : ''}
+          </AppText>
+        </LinearGradient>
+
+        <View style={styles.body}>
+          <View style={styles.beatRow}>
+            {barAnims.map((anim, index) => (
+              <Animated.View
+                key={`beat-${index}`}
+                style={[
+                  styles.beatBar,
+                  isPlaying ? styles.beatBarActive : styles.beatBarIdle,
+                  {
+                    backgroundColor: isPlaying ? colors.primary : colors.border,
+                    height: anim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [8, 56],
+                    }),
+                  },
+                ]}
+              />
+            ))}
+          </View>
+
+          <Pressable
+            onPress={handleSeek}
+            onLayout={(event: LayoutChangeEvent) => {
+              trackWidthRef.current = event.nativeEvent.layout.width;
+            }}
+            style={[styles.track, { backgroundColor: colors.bgSecondary }]}
+            accessibilityRole="adjustable"
+            accessibilityLabel="Seek preview position"
+          >
+            <View
               style={[
-                styles.beatBar,
-                isPlaying ? styles.beatBarActive : styles.beatBarIdle,
+                styles.trackFill,
+                { width: `${Math.max(2, progress * 100)}%`, backgroundColor: colors.primary },
+              ]}
+            />
+            <View
+              style={[
+                styles.thumb,
                 {
-                  backgroundColor: isPlaying ? colors.primary : colors.border,
-                  height: anim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [8, 56],
-                  }),
+                  left: `${Math.max(0, Math.min(100, progress * 100))}%`,
+                  backgroundColor: colors.primary,
+                  borderColor: colors.bgElevated,
                 },
               ]}
             />
-          ))}
-        </View>
-
-        <Pressable
-          onPress={handleSeek}
-          onLayout={(event: LayoutChangeEvent) => {
-            trackWidthRef.current = event.nativeEvent.layout.width;
-          }}
-          style={[styles.track, { backgroundColor: colors.bgSecondary }]}
-          accessibilityRole="adjustable"
-          accessibilityLabel="Seek song position"
-        >
-          <View
-            style={[
-              styles.trackFill,
-              { width: `${Math.max(2, progress * 100)}%`, backgroundColor: colors.primary },
-            ]}
-          />
-          <View
-            style={[
-              styles.thumb,
-              {
-                left: `${Math.max(0, Math.min(100, progress * 100))}%`,
-                backgroundColor: colors.primary,
-                borderColor: colors.bgElevated,
-              },
-            ]}
-          />
-        </Pressable>
-
-        <View style={styles.timeRow}>
-          <AppText variant="itemMeta" color={colors.textTertiary}>
-            {formatTime(positionMs)}
-          </AppText>
-          <AppText variant="itemMeta" color={colors.textTertiary}>
-            {formatTime(durationMs)}
-          </AppText>
-        </View>
-
-        <View style={styles.controls}>
-          <Pressable
-            onPress={async () => {
-              const sound = await ensureSound();
-              if (!sound) return;
-              await sound.setPositionAsync(Math.max(0, positionMs - 5000));
-            }}
-            style={[styles.sideBtn, { borderColor: colors.border }]}
-            accessibilityLabel="Back 5 seconds"
-          >
-            <Feather name="rotate-ccw" size={18} color={colors.textSecondary} />
           </Pressable>
 
-          <Pressable
-            onPress={handlePlayPause}
-            disabled={isLoadingAudio || isTrackLoading || !previewUrl}
-            style={[
-              styles.playBtn,
-              { backgroundColor: colors.primary },
-              (isLoadingAudio || isTrackLoading || !previewUrl) && styles.playBtnDisabled,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
-          >
-            {isLoadingAudio || isTrackLoading ? (
-              <AppText variant="itemMeta" color={colors.white}>
-                ...
-              </AppText>
-            ) : (
-              <Feather name={isPlaying ? 'pause' : 'play'} size={28} color={colors.white} />
-            )}
-          </Pressable>
+          <View style={styles.timeRow}>
+            <AppText variant="itemMeta" color={colors.textTertiary}>
+              {formatTime(positionMs)}
+            </AppText>
+            <AppText variant="itemMeta" color={colors.textTertiary}>
+              {formatTime(durationMs)}
+            </AppText>
+          </View>
 
-          <Pressable
-            onPress={async () => {
-              const sound = await ensureSound();
-              if (!sound) return;
-              const next = Math.min(durationMs || positionMs + 5000, positionMs + 5000);
-              await sound.setPositionAsync(next);
-            }}
-            style={[styles.sideBtn, { borderColor: colors.border }]}
-            accessibilityLabel="Forward 5 seconds"
-          >
-            <Feather name="rotate-cw" size={18} color={colors.textSecondary} />
-          </Pressable>
-        </View>
+          <View style={styles.controls}>
+            <Pressable
+              onPress={async () => {
+                const sound = await ensureSound();
+                if (!sound) return;
+                await sound.setPositionAsync(Math.max(0, positionMs - 5000));
+              }}
+              style={[styles.sideBtn, { borderColor: colors.border }]}
+              accessibilityLabel="Back 5 seconds"
+            >
+              <Feather name="rotate-ccw" size={18} color={colors.textSecondary} />
+            </Pressable>
 
-        <AppText variant="itemMeta" color={colors.textTertiary} center>
-          {previewUrl
-            ? '30-second preview stream'
-            : isTrackLoading
-              ? 'Loading audio...'
-              : 'No audio stream for this track'}
-        </AppText>
+            <Pressable
+              onPress={handlePlayPause}
+              disabled={isLoadingAudio || isTrackLoading || !previewUrl}
+              style={[
+                styles.playBtn,
+                { backgroundColor: colors.primary },
+                (isLoadingAudio || isTrackLoading || !previewUrl) && styles.playBtnDisabled,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={isPlaying ? 'Pause preview' : 'Play preview'}
+            >
+              {isLoadingAudio || isTrackLoading ? (
+                <AppText variant="itemMeta" color={colors.white}>
+                  ...
+                </AppText>
+              ) : (
+                <Feather name={isPlaying ? 'pause' : 'play'} size={28} color={colors.white} />
+              )}
+            </Pressable>
 
-        {audioError ? (
-          <AppText variant="itemMeta" color={colors.error} center>
-            {audioError}
+            <Pressable
+              onPress={async () => {
+                const sound = await ensureSound();
+                if (!sound) return;
+                const next = Math.min(durationMs || positionMs + 5000, positionMs + 5000);
+                await sound.setPositionAsync(next);
+              }}
+              style={[styles.sideBtn, { borderColor: colors.border }]}
+              accessibilityLabel="Forward 5 seconds"
+            >
+              <Feather name="rotate-cw" size={18} color={colors.textSecondary} />
+            </Pressable>
+          </View>
+
+          <AppText variant="itemMeta" color={colors.textTertiary} center>
+            {previewUrl
+              ? '~30 second preview · full song links are under the lyrics'
+              : isTrackLoading
+                ? 'Loading preview...'
+                : 'No preview clip · use Listen full song under the lyrics'}
           </AppText>
-        ) : null}
+
+          {audioError ? (
+            <AppText variant="itemMeta" color={colors.error} center>
+              {audioError}
+            </AppText>
+          ) : null}
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrap: {
+    gap: spacing.sm,
+  },
+  sectionEyebrow: {
+    letterSpacing: 1.2,
+  },
   card: {
     borderRadius: radii.xl,
     borderWidth: 1,
@@ -464,5 +564,29 @@ const styles = StyleSheet.create({
   },
   playBtnDisabled: {
     opacity: 0.55,
+  },
+  fullSongRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    justifyContent: 'center',
+    marginTop: spacing.xs,
+  },
+  fullSongBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  fullSongBtnSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
 });

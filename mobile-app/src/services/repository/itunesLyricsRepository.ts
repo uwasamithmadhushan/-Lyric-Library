@@ -161,17 +161,37 @@ function mapCatalogSongsForArtist(artistName: string): Song[] {
   return songs;
 }
 
+function normalizeArtistKey(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isCatalogArtistId(id: string): boolean {
+  return id.startsWith('cat-artist:');
+}
+
 function mergeArtistsByName(artists: Artist[]): Artist[] {
   const byName = new Map<string, Artist>();
   for (const artist of artists) {
-    const key = artist.name.trim().toLowerCase();
+    const key = normalizeArtistKey(artist.name);
+    if (!key) continue;
     const existing = byName.get(key);
     if (!existing) {
       byName.set(key, artist);
       continue;
     }
-    // Prefer backend records (non cat-artist ids) when merging duplicates.
-    const preferIncoming = !artist.id.startsWith('cat-artist:') && existing.id.startsWith('cat-artist:');
+
+    // Prefer backend/library records over catalog placeholders, then higher song counts.
+    const preferIncoming =
+      (!isCatalogArtistId(artist.id) && isCatalogArtistId(existing.id)) ||
+      (isCatalogArtistId(artist.id) === isCatalogArtistId(existing.id) &&
+        artist.songCount > existing.songCount);
+
     if (preferIncoming) {
       byName.set(key, {
         ...artist,
@@ -297,23 +317,60 @@ export class ItunesLyricsRepository implements LyricsRepository {
 
       try {
         const deezer = await searchDeezerArtist(query);
-        if (deezer && !localMatches.some((a) => a.name.toLowerCase() === deezer.name.toLowerCase())) {
-          localMatches.push(
-            this.rememberArtist({
-              id: toCatalogArtistId(deezer.name),
-              name: deezer.name,
-              songCount: 0,
-              albums: [],
-              imageUrl: deezer.imageUrl,
-            }),
+        if (deezer) {
+          const deezerKey = normalizeArtistKey(deezer.name);
+          let libraryMatch =
+            backendArtists.find((artist) => normalizeArtistKey(artist.name) === deezerKey) ??
+            localMatches.find((artist) => normalizeArtistKey(artist.name) === deezerKey);
+
+          // Typo search often misses backend `contains` — re-query using Deezer's real name.
+          if (!libraryMatch || isCatalogArtistId(libraryMatch.id)) {
+            try {
+              const tokens = deezerKey.split(' ').filter((token) => token.length > 2);
+              const lookupQuery = tokens[tokens.length - 1] || deezer.name;
+              const synced = await fetchBackendArtists({ query: lookupQuery });
+              const exact = synced.find(
+                (artist) => normalizeArtistKey(artist.name) === deezerKey,
+              );
+              if (exact) {
+                libraryMatch = this.rememberArtist(exact);
+                if (!backendArtists.some((artist) => artist.id === exact.id)) {
+                  backendArtists.push(exact);
+                }
+              }
+            } catch {
+              // ignore
+            }
+          }
+
+          const alreadyPresent = [...backendArtists, ...localMatches].some(
+            (artist) => normalizeArtistKey(artist.name) === deezerKey,
           );
+          if (!alreadyPresent && !libraryMatch) {
+            localMatches.push(
+              this.rememberArtist({
+                id: toCatalogArtistId(deezer.name),
+                name: deezer.name,
+                songCount: 0,
+                albums: [],
+                imageUrl: deezer.imageUrl,
+              }),
+            );
+          } else if (libraryMatch?.imageUrl || deezer.imageUrl) {
+            // Attach Deezer artwork onto the library record when missing.
+            const target = backendArtists.find((artist) => artist.id === libraryMatch?.id);
+            if (target && !target.imageUrl && deezer.imageUrl) {
+              target.imageUrl = deezer.imageUrl;
+            }
+          }
         }
       } catch {
         // ignore
       }
 
-      return mergeArtistsByName([...backendArtists, ...localMatches]).sort((a, b) =>
-        a.name.localeCompare(b.name),
+      return mergeArtistsByName([...backendArtists, ...localMatches]).sort(
+        (a, b) =>
+          b.songCount - a.songCount || a.name.localeCompare(b.name),
       );
     }
 
@@ -344,8 +401,20 @@ export class ItunesLyricsRepository implements LyricsRepository {
       // If admin already synced this artist, prefer the backend record.
       try {
         const synced = await fetchBackendArtists({ query: catalogName });
-        const exact = synced.find((item) => item.name.toLowerCase() === catalogName.toLowerCase());
+        const wanted = normalizeArtistKey(catalogName);
+        const exact =
+          synced.find((item) => normalizeArtistKey(item.name) === wanted) ??
+          synced.find((item) => item.name.toLowerCase() === catalogName.toLowerCase());
         if (exact) return this.rememberArtist(exact);
+
+        // Fallback: last name / significant token search (handles "M S Fernando" vs "M. S. Fernando").
+        const tokens = wanted.split(' ').filter((token) => token.length > 2);
+        const lookupQuery = tokens[tokens.length - 1];
+        if (lookupQuery) {
+          const broader = await fetchBackendArtists({ query: lookupQuery });
+          const match = broader.find((item) => normalizeArtistKey(item.name) === wanted);
+          if (match) return this.rememberArtist(match);
+        }
       } catch {
         // ignore
       }
@@ -409,6 +478,21 @@ export class ItunesLyricsRepository implements LyricsRepository {
           ])[0],
         );
         return this.sortSongs(songs, normalized.sort);
+      }
+
+      // Backend albums use cuid ids — never send those to iTunes lookup.
+      try {
+        const backendAlbumSongs = await fetchBackendSongs({ albumId: normalized.albumId });
+        if (backendAlbumSongs.length) {
+          this.rememberSongs(backendAlbumSongs);
+          return this.sortSongs(backendAlbumSongs, normalized.sort);
+        }
+      } catch {
+        // Backend may be offline.
+      }
+
+      if (!/^\d+$/.test(normalized.albumId.trim())) {
+        return [];
       }
 
       try {

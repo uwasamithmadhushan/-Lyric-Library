@@ -146,8 +146,12 @@ export async function lookupAlbumSongs(
   albumId: string | number,
   limit = 50,
 ): Promise<ItunesSongResult[]> {
+  const id = String(albumId).trim();
+  // iTunes lookup only accepts numeric collection ids.
+  if (!/^\d+$/.test(id)) return [];
+
   const results = await itunesFetch<ItunesSongResult | ItunesAlbumResult>('lookup', {
-    id: String(albumId),
+    id,
     entity: 'song',
     limit: String(limit),
   });
