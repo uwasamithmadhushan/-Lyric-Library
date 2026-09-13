@@ -1,5 +1,14 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, FlatList, Pressable, useWindowDimensions } from 'react-native';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  FlatList,
+  Pressable,
+  useWindowDimensions,
+  Image,
+  Animated,
+} from 'react-native';
 import { AppScreen, AppText, AppSearchBar, ArtistCard, Chip } from '@/components';
 import { spacing, radii } from '@/theme';
 import { useTheme } from '@/hooks/useTheme';
@@ -16,7 +25,7 @@ import {
 } from '@/data/catalog/featuredCatalog';
 import { getRecentlyViewed, addRecentlyViewed } from '@/store/localState';
 import { useSavedStore } from '@/store';
-import { enrichArtistImage } from '@/services/deezer/deezerApi';
+import { enrichArtistImage, searchDeezerTrack } from '@/services/deezer/deezerApi';
 import { toggleSavedArtist } from '@/store/savedLyricsActions';
 import type { Artist } from '@/types';
 
@@ -27,6 +36,8 @@ const FEATURED = HOME_FEATURED_SONGS.map((item) => ({
 }));
 
 const GENRES = ['Pop', 'Rock', 'Hip Hop', 'R&B', 'Country', 'Jazz', 'K-Pop', 'Latin'];
+
+const HERO_POSTER_INTERVAL_MS = 4500;
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -51,6 +62,9 @@ export default function HomeScreen() {
   const [query, setQuery] = useState('');
   const { data: popularArtists = [] } = useArtists();
   const [homeArtists, setHomeArtists] = useState<Artist[]>([]);
+  const [heroPosters, setHeroPosters] = useState<string[]>([]);
+  const [posterIndex, setPosterIndex] = useState(0);
+  const posterFade = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +88,56 @@ export default function HomeScreen() {
       cancelled = true;
     };
   }, [popularArtists]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      const covers = await mapPool(HOME_FEATURED_SONGS.slice(0, 8), 3, async (song) => {
+        try {
+          const match = await searchDeezerTrack(song.title, song.artist);
+          return match?.artworkUrl;
+        } catch {
+          return undefined;
+        }
+      });
+      if (cancelled) return;
+
+      const unique = covers.filter((url, index, list): url is string =>
+        Boolean(url) && list.indexOf(url) === index,
+      );
+      if (unique.length > 0) {
+        setHeroPosters(unique);
+        setPosterIndex(0);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (heroPosters.length < 2) return undefined;
+
+    const timer = setInterval(() => {
+      Animated.timing(posterFade, {
+        toValue: 0,
+        duration: 320,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (!finished) return;
+        setPosterIndex((current) => (current + 1) % heroPosters.length);
+        Animated.timing(posterFade, {
+          toValue: 1,
+          duration: 420,
+          useNativeDriver: true,
+        }).start();
+      });
+    }, HERO_POSTER_INTERVAL_MS);
+
+    return () => clearInterval(timer);
+  }, [heroPosters.length, posterFade]);
 
   useFocusEffect(
     useCallback(() => {
@@ -125,7 +189,7 @@ export default function HomeScreen() {
     filteredGenres.length > 0;
 
   return (
-    <AppScreen backgroundColor={colors.bgSecondary} padded={false} style={styles.screen}>
+    <AppScreen padded={false} style={styles.screen}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
@@ -136,24 +200,46 @@ export default function HomeScreen() {
           },
         ]}
       >
-        <View style={[styles.hero, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
-          <AppText variant="pageTitle">Lyric Library</AppText>
-          <AppText variant="pageSubtitle" color={colors.textSecondary} style={styles.heroSubtitle}>
-            Discover and save your favorite lyrics
-          </AppText>
+        <View
+          style={[
+            styles.hero,
+            {
+              backgroundColor: colors.bgElevated,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <View style={styles.heroContent}>
+            <AppText variant="pageTitle">Lyric Library</AppText>
+            <AppText variant="pageSubtitle" color={colors.textSecondary} style={styles.heroSubtitle}>
+              Discover and save your favorite lyrics
+            </AppText>
 
-          <View style={styles.heroActions}>
-            <View style={[styles.heroBadge, { backgroundColor: colors.primaryLight }]}>
-              <AppText variant="itemMeta" color={colors.primary}>
-                {favorites.length} favorites
-              </AppText>
-            </View>
-            <View style={[styles.heroBadge, { backgroundColor: colors.secondaryLight }]}>
-              <AppText variant="itemMeta" color={colors.secondary}>
-                {recent.length} recent
-              </AppText>
+            <View style={styles.heroActions}>
+              <View style={[styles.heroBadge, { backgroundColor: colors.primaryLight }]}>
+                <AppText variant="itemMeta" color={colors.primary}>
+                  {favorites.length} favorites
+                </AppText>
+              </View>
+              <View style={[styles.heroBadge, { backgroundColor: colors.secondaryLight }]}>
+                <AppText variant="itemMeta" color={colors.secondary}>
+                  {recent.length} recent
+                </AppText>
+              </View>
             </View>
           </View>
+
+          {heroPosters.length > 0 ? (
+            <Animated.View style={[styles.heroPosterWrap, { opacity: posterFade }]}>
+              <Image
+                source={{ uri: heroPosters[posterIndex] }}
+                style={styles.heroPosterImage}
+                resizeMode="cover"
+              />
+            </Animated.View>
+          ) : (
+            <View style={[styles.heroPosterPlaceholder, { backgroundColor: colors.bgSecondary }]} />
+          )}
         </View>
 
         <View style={styles.searchRow}>
@@ -355,7 +441,7 @@ export default function HomeScreen() {
 function Section({ title, children }: Readonly<{ title: string; children: React.ReactNode }>) {
   const { colors } = useTheme();
   return (
-    <View style={[styles.section, { backgroundColor: colors.bgPrimary, borderColor: colors.border }]}>
+    <View style={[styles.section, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
       <AppText variant="sectionHeader" color={colors.textTertiary} style={styles.sectionTitle}>
         {title}
       </AppText>
@@ -373,11 +459,20 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
   },
   hero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
     paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xxl,
+    paddingVertical: spacing.xl,
     borderRadius: radii.xl + 8,
     borderWidth: 1,
+    overflow: 'hidden',
+    minHeight: 148,
+  },
+  heroContent: {
+    flex: 1,
     gap: spacing.sm,
+    paddingRight: spacing.xs,
   },
   heroSubtitle: {
     marginTop: spacing.xs,
@@ -392,6 +487,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.s,
     borderRadius: radii.full,
+  },
+  heroPosterWrap: {
+    width: 108,
+    height: 108,
+    borderRadius: radii.lg,
+    overflow: 'hidden',
+    flexShrink: 0,
+  },
+  heroPosterImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroPosterPlaceholder: {
+    width: 108,
+    height: 108,
+    borderRadius: radii.lg,
+    flexShrink: 0,
   },
   searchRow: {
     marginTop: spacing.xs,

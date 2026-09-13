@@ -1,4 +1,5 @@
 import React from 'react';
+import { useColorScheme } from 'react-native';
 import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -19,7 +20,9 @@ installMediaFetchGuard();
 export default function App() {
   const { colors } = useTheme();
   const themeMode = useUIStore((state) => state.themeMode);
-  const isDark = themeMode === 'dark';
+  const systemScheme = useColorScheme();
+  const isDark =
+    themeMode === 'dark' || (themeMode === 'system' && systemScheme === 'dark');
   const navigationTheme = {
     ...(isDark ? DarkTheme : DefaultTheme),
     colors: {

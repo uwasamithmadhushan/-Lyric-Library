@@ -1,7 +1,20 @@
 import { useCallback, useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 import { useUIStore } from '@/store';
-import { colors as lightColors, darkColors, gradients, spacing, radii, fontFamily, fontWeight, fontSize, lineHeight, textVariants, shadows } from '@/theme';
+import {
+  colors as lightColors,
+  darkColors,
+  gradients,
+  spacing,
+  radii,
+  fontFamily,
+  fontWeight,
+  fontSize,
+  lineHeight,
+  textVariants,
+  shadows,
+  resolveBackgroundSurfaces,
+} from '@/theme';
 import type { Theme } from '@/theme';
 
 /**
@@ -13,13 +26,23 @@ import type { Theme } from '@/theme';
  */
 export function useTheme(): Theme {
   const themeMode = useUIStore((state) => state.themeMode);
+  const backgroundId = useUIStore((state) => state.backgroundId);
   const systemScheme = useColorScheme();
 
   return useMemo(() => {
-    const resolvedDark = themeMode === 'dark' || (themeMode === 'system' && systemScheme === 'dark');
+    const resolvedDark =
+      themeMode === 'dark' || (themeMode === 'system' && systemScheme === 'dark');
+    const base = resolvedDark ? darkColors : lightColors;
+    const surfaces = resolveBackgroundSurfaces(backgroundId, resolvedDark);
 
     return {
-      colors: resolvedDark ? darkColors : lightColors,
+      colors: {
+        ...base,
+        bgPrimary: surfaces.bgPrimary,
+        bgSecondary: surfaces.bgSecondary,
+        bgElevated: surfaces.bgElevated,
+        border: surfaces.border,
+      },
       gradients,
       spacing,
       radii,
@@ -30,7 +53,7 @@ export function useTheme(): Theme {
       textVariants,
       shadows,
     } as Theme;
-  }, [systemScheme, themeMode]);
+  }, [backgroundId, systemScheme, themeMode]);
 }
 
 /**
@@ -45,7 +68,10 @@ export function useTheme(): Theme {
 export function useThemedStyles() {
   const currentTheme = useTheme();
 
-  return useCallback(<T>(factory: (t: Theme) => T): T => {
-    return factory(currentTheme);
-  }, [currentTheme]);
+  return useCallback(
+    <T>(factory: (t: Theme) => T): T => {
+      return factory(currentTheme);
+    },
+    [currentTheme],
+  );
 }

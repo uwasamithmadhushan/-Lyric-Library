@@ -1,8 +1,16 @@
-import React, { ReactNode } from 'react';
-import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
+import React, { ReactNode, useMemo } from 'react';
+import {
+  View,
+  StyleSheet,
+  ViewStyle,
+  StyleProp,
+  ImageBackground,
+  useColorScheme,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing } from '@/theme';
 import { useTheme } from '@/hooks/useTheme';
+import { useUIStore } from '@/store';
 
 interface AppScreenProps {
   children: ReactNode;
@@ -16,11 +24,7 @@ interface AppScreenProps {
 
 /**
  * Base screen wrapper — handles safe area insets and consistent background.
- *
- * Usage:
- *   <AppScreen>
- *     <AppText variant="pageTitle">Artists</AppText>
- *   </AppScreen>
+ * Supports preset colors + optional user photo (with dark/light wash).
  */
 export function AppScreen({
   children,
@@ -30,31 +34,62 @@ export function AppScreen({
 }: Readonly<AppScreenProps>) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
-  const dynamicStyles = StyleSheet.create({
-    container: {
-      backgroundColor: backgroundColor ?? colors.bgPrimary,
-      paddingTop: insets.top + spacing.md,
-      paddingBottom: insets.bottom + spacing.md,
-    },
-  });
+  const themeMode = useUIStore((state) => state.themeMode);
+  const backgroundId = useUIStore((state) => state.backgroundId);
+  const customBackgroundUri = useUIStore((state) => state.customBackgroundUri);
+  const systemScheme = useColorScheme();
 
-  return (
+  const isDark =
+    themeMode === 'dark' || (themeMode === 'system' && systemScheme === 'dark');
+  const useCustomImage =
+    backgroundId === 'custom' && Boolean(customBackgroundUri);
+
+  const overlayColor = useMemo(
+    () => (isDark ? 'rgba(11, 18, 32, 0.72)' : 'rgba(251, 253, 255, 0.62)'),
+    [isDark],
+  );
+
+  const content = (
     <View
       style={[
         styles.container,
         padded ? styles.padded : styles.unpadded,
-        dynamicStyles.container,
+        {
+          backgroundColor: useCustomImage
+            ? 'transparent'
+            : (backgroundColor ?? colors.bgPrimary),
+          paddingTop: insets.top + spacing.md,
+          paddingBottom: insets.bottom + spacing.md,
+        },
         style,
       ]}
     >
       {children}
     </View>
   );
+
+  if (!useCustomImage || !customBackgroundUri) {
+    return content;
+  }
+
+  return (
+    <ImageBackground
+      source={{ uri: customBackgroundUri }}
+      style={styles.container}
+      resizeMode="cover"
+    >
+      <View style={[styles.overlay, { backgroundColor: overlayColor }]} />
+      {content}
+    </ImageBackground>
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
   },
   padded: {
     paddingHorizontal: spacing.xxl,

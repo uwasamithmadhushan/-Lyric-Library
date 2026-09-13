@@ -114,7 +114,6 @@ export default function SavedScreen({ navigation }: Readonly<Props>) {
   return (
     <AppScreen padded={false}>
       <View style={styles.header}>
-        <AppText variant="pageTitle">Saved</AppText>
         <AppText variant="pageSubtitle">Your bookmarked lyrics and artists</AppText>
       </View>
 

@@ -15,4 +15,5 @@ export type {
   SavedTabMode,
   LyricsTextSize,
   ThemeMode,
+  AppBackgroundId,
 } from './models';

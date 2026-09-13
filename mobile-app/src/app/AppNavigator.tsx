@@ -1,9 +1,8 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, StyleSheet, Platform, useWindowDimensions, Pressable } from 'react-native';
+import { StyleSheet, Platform, useWindowDimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import { useTheme } from '@/hooks/useTheme';
 import type {
@@ -40,14 +39,18 @@ const TAB_ICONS: Record<keyof RootTabParamList, FeatherName> = {
 };
 
 function useStackScreenOptions() {
-  const { colors: palette } = useTheme();
+  const { colors: palette, fontFamily: fonts } = useTheme();
   return {
     headerShown: true,
     headerStyle: { backgroundColor: palette.bgPrimary },
-    headerTitleStyle: { color: palette.textPrimary, fontWeight: '700' as const },
+    headerTitleStyle: {
+      color: palette.textPrimary,
+      fontFamily: fonts.heading,
+      fontWeight: '700' as const,
+    },
     headerTintColor: palette.primary,
     headerShadowVisible: false,
-    headerRight: () => <HeaderActions />,
+    contentStyle: { backgroundColor: palette.bgPrimary },
   };
 }
 
@@ -127,9 +130,10 @@ export function AppNavigator() {
         headerShown: false,
         tabBarStyle: [
           styles.tabBar,
-          { backgroundColor: palette.bgElevated, borderTopColor: palette.border },
+          { backgroundColor: palette.bgPrimary, borderTopColor: palette.border },
           isWide && styles.tabBarWide,
         ],
+        sceneStyle: { backgroundColor: palette.bgPrimary },
         tabBarItemStyle: styles.tabBarItem,
         tabBarActiveTintColor: palette.primary,
         tabBarInactiveTintColor: palette.textTertiary,
@@ -146,32 +150,6 @@ export function AppNavigator() {
       <Tab.Screen name="SavedTab" component={SavedStackNavigator} options={{ tabBarLabel: 'Saved' }} />
       <Tab.Screen name="ProfileTab" component={ProfileSettingsScreen} options={{ tabBarLabel: 'Profile' }} />
     </Tab.Navigator>
-  );
-}
-
-function HeaderActions() {
-  const { colors: palette } = useTheme();
-  const navigation = useNavigation<NavigationProp<RootTabParamList>>();
-
-  return (
-    <View style={styles.headerActions}>
-      <Pressable
-        onPress={() => navigation.navigate('HomeTab', { screen: 'SearchMain' })}
-        accessibilityRole="button"
-        accessibilityLabel="Open search"
-        hitSlop={8}
-      >
-        <Feather name="search" size={20} color={palette.primary} />
-      </Pressable>
-      <Pressable
-        onPress={() => navigation.navigate('ProfileTab')}
-        accessibilityRole="button"
-        accessibilityLabel="Open profile"
-        hitSlop={8}
-      >
-        <Feather name="user" size={20} color={palette.primary} />
-      </Pressable>
-    </View>
   );
 }
 
@@ -196,11 +174,5 @@ const styles = StyleSheet.create({
   tabLabelWide: {
     fontSize: 13,
     fontWeight: '700',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginRight: 12,
   },
 });

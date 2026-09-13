@@ -7,6 +7,8 @@ describe('uiStore', () => {
     useUIStore.setState({
       textSize: 'normal',
       themeMode: 'system',
+      backgroundId: 'default',
+      customBackgroundUri: null,
       recentSearches: [],
       hasHydrated: false,
     });
@@ -22,6 +24,11 @@ describe('uiStore', () => {
   it('updates theme mode', () => {
     useUIStore.getState().setThemeMode('dark');
     expect(useUIStore.getState().themeMode).toBe('dark');
+  });
+
+  it('updates background preset', () => {
+    useUIStore.getState().setBackgroundId('ocean');
+    expect(useUIStore.getState().backgroundId).toBe('ocean');
   });
 
   it('stores recent searches uniquely', () => {

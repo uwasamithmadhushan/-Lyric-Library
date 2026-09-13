@@ -15,7 +15,13 @@
     },
     "plugins": [
       "expo-font",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Lyric Library to use your photos as an app background."
+        }
+      ]
     ]
   }
 }

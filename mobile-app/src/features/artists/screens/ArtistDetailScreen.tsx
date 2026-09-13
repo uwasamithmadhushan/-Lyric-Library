@@ -60,6 +60,12 @@ export default function ArtistDetailScreen({ route, navigation }: Props) {
   const { artistId, artistName } = route.params;
   const { data: artist, isLoading, isError, refetch } = useArtistById(artistId);
   const [imageFailed, setImageFailed] = useState(false);
+
+  // Reset image error when navigating to another artist.
+  React.useEffect(() => {
+    setImageFailed(false);
+  }, [artistId, artist?.imageUrl]);
+
   const savedMap = useSavedStore((state) => state.savedMap);
 
   useFocusEffect(

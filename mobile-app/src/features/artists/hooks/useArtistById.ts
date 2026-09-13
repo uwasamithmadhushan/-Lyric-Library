@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { lyricsRepository } from '@/services';
+import { enrichArtistImage } from '@/services/deezer/deezerApi';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,13 +59,29 @@ async function fetchArtistById(artistId: string): Promise<Artist> {
     }))
     .sort((left, right) => right.year - left.year);
 
+  let imageUrl = artistData.imageUrl;
+  if (!imageUrl) {
+    // Prefer artwork already on a song, then Deezer artist photo (same as Artists grid).
+    const fromSong = artistSongs.find((song) => song.artworkUrl)?.artworkUrl;
+    if (fromSong) {
+      imageUrl = fromSong;
+    } else {
+      try {
+        const media = await enrichArtistImage(artistData.name);
+        imageUrl = media.imageUrl;
+      } catch {
+        // keep letter placeholder
+      }
+    }
+  }
+
   return {
     id: artistData.id,
     name: artistData.name,
     songCount: artistData.songCount || popularSongs.length,
     popularSongs,
     albums,
-    imageUrl: artistData.imageUrl,
+    imageUrl,
   };
 }
 

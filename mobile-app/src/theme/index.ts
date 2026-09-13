@@ -1,5 +1,11 @@
 export { colors, darkColors, gradients } from './tokens';
 export type { ColorKey } from './tokens';
+export {
+  APP_BACKGROUNDS,
+  getAppBackground,
+  resolveBackgroundSurfaces,
+} from './backgrounds';
+export type { AppBackgroundId, AppBackgroundPreset, BackgroundSurfaces } from './backgrounds';
 
 export { spacing, radii } from './spacing';
 export type { SpacingKey, RadiiKey } from './spacing';

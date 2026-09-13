@@ -112,3 +112,13 @@ export type LyricsTextSize = 'small' | 'normal' | 'large';
 
 /** Theme preference (light/dark ready) */
 export type ThemeMode = 'light' | 'dark' | 'system';
+
+/** App background preset (adapts with dark mode) */
+export type AppBackgroundId =
+  | 'default'
+  | 'mist'
+  | 'ocean'
+  | 'sand'
+  | 'forest'
+  | 'slate'
+  | 'custom';
