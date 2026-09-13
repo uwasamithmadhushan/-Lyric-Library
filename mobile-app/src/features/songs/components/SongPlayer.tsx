@@ -8,6 +8,7 @@ import {
   Easing,
   LayoutChangeEvent,
   Linking,
+  Platform,
 } from 'react-native';
 import { Audio, type AVPlaybackStatus } from 'expo-av';
 import { Feather } from '@expo/vector-icons';
@@ -15,6 +16,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AppText } from '@/components';
 import { radii, spacing, shadows } from '@/theme';
 import { useTheme } from '@/hooks/useTheme';
+import {
+  isPreviewUrlExpired,
+  resolvePreviewPlaybackUrl,
+  toProxiedMediaUrl,
+} from '@/services/media/mediaProxy';
+import { searchDeezerTrack } from '@/services/deezer/deezerApi';
 
 const BAR_COUNT = 28;
 
@@ -70,6 +77,16 @@ export function SongPlayer({
   const spotifyFullUrl = `https://open.spotify.com/search/${encodeURIComponent(query)}`;
   const deezerFullUrl = `https://www.deezer.com/search/${encodeURIComponent(query)}`;
   const youtubeFullUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+  const [livePreviewUrl, setLivePreviewUrl] = useState<string | undefined>(previewUrl);
+  const playbackUri = useMemo(
+    () => resolvePreviewPlaybackUrl(livePreviewUrl),
+    [livePreviewUrl],
+  );
+  const canAttemptPreview = Boolean(previewUrl || (title && artistName));
+
+  useEffect(() => {
+    setLivePreviewUrl(previewUrl);
+  }, [previewUrl]);
 
   useEffect(() => {
     Audio.setAudioModeAsync({
@@ -101,7 +118,7 @@ export function SongPlayer({
     return () => {
       cancelled = true;
     };
-  }, [previewUrl]);
+  }, [title, artistName, previewUrl]);
 
   useEffect(() => {
     const loops = barAnims.map((anim, index) =>
@@ -154,20 +171,78 @@ export function SongPlayer({
     }
   };
 
+  const refreshPreviewUrl = async (): Promise<string | undefined> => {
+    try {
+      const match = await searchDeezerTrack(title, artistName);
+      if (match?.previewUrl && !isPreviewUrlExpired(match.previewUrl)) {
+        setLivePreviewUrl(match.previewUrl);
+        return match.previewUrl;
+      }
+      // API returned an already-stale link — try once more after a tiny delay.
+      const retry = await searchDeezerTrack(title, artistName);
+      if (retry?.previewUrl && !isPreviewUrlExpired(retry.previewUrl)) {
+        setLivePreviewUrl(retry.previewUrl);
+        return retry.previewUrl;
+      }
+      if (retry?.previewUrl) {
+        setLivePreviewUrl(retry.previewUrl);
+        return retry.previewUrl;
+      }
+    } catch {
+      // keep previous url
+    }
+    return undefined;
+  };
+
+  const resolveSourceUrl = async (): Promise<string | undefined> => {
+    // Always mint a fresh Deezer signed URL — cached previews expire in ~15 minutes.
+    const fresh = await refreshPreviewUrl();
+    const candidate = fresh || (livePreviewUrl && !isPreviewUrlExpired(livePreviewUrl) ? livePreviewUrl : undefined);
+    if (!candidate) return undefined;
+    return resolvePreviewPlaybackUrl(candidate);
+  };
+
+  const loadSoundFromUri = async (uri: string) => {
+    const attempts = Platform.OS === 'web' ? [uri, toProxiedMediaUrl(uri)] : [uri];
+    let lastError: unknown;
+
+    for (const attempt of attempts) {
+      try {
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: attempt },
+          { shouldPlay: false, progressUpdateIntervalMillis: 120 },
+          onPlaybackStatusUpdate,
+        );
+        const status = await sound.getStatusAsync();
+        if (!status.isLoaded) {
+          await sound.unloadAsync().catch(() => undefined);
+          throw new Error('Preview failed to load');
+        }
+        return sound;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error('Preview failed to load');
+  };
+
   const ensureSound = async () => {
-    if (!previewUrl) {
+    if (soundRef.current) return soundRef.current;
+    if (!canAttemptPreview) {
       setAudioError('No 30s preview available. Use Listen full song below the lyrics.');
       return null;
     }
-    if (soundRef.current) return soundRef.current;
 
     setIsLoadingAudio(true);
     try {
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: previewUrl },
-        { shouldPlay: false, progressUpdateIntervalMillis: 120 },
-        onPlaybackStatusUpdate,
-      );
+      const uri = await resolveSourceUrl();
+      if (!uri) {
+        setAudioError('No 30s preview available. Use Listen full song below the lyrics.');
+        return null;
+      }
+
+      const sound = await loadSoundFromUri(uri);
       soundRef.current = sound;
       return sound;
     } catch {
@@ -180,26 +255,38 @@ export function SongPlayer({
 
   const handlePlayPause = async () => {
     setAudioError(null);
-    const sound = await ensureSound();
-    if (!sound) return;
+    try {
+      const sound = await ensureSound();
+      if (!sound) return;
 
-    const status = await sound.getStatusAsync();
-    if (!status.isLoaded) return;
+      const status = await sound.getStatusAsync();
+      if (!status.isLoaded) {
+        setAudioError('Preview audio is unavailable in this browser.');
+        return;
+      }
 
-    if (status.isPlaying) {
-      await sound.pauseAsync();
+      if (status.isPlaying) {
+        await sound.pauseAsync();
+        setIsPlaying(false);
+        return;
+      }
+
+      if (
+        status.didJustFinish ||
+        (status.durationMillis && status.positionMillis >= status.durationMillis - 200)
+      ) {
+        await sound.setPositionAsync(0);
+      }
+      await sound.playAsync();
+      setIsPlaying(true);
+    } catch {
       setIsPlaying(false);
-      return;
+      setAudioError('Could not play preview audio.');
+      if (soundRef.current) {
+        await soundRef.current.unloadAsync().catch(() => undefined);
+        soundRef.current = null;
+      }
     }
-
-    if (
-      status.didJustFinish ||
-      (status.durationMillis && status.positionMillis >= status.durationMillis - 200)
-    ) {
-      await sound.setPositionAsync(0);
-    }
-    await sound.playAsync();
-    setIsPlaying(true);
   };
 
   const handleSeek = async (event: { nativeEvent: { locationX: number } }) => {
@@ -402,11 +489,11 @@ export function SongPlayer({
 
             <Pressable
               onPress={handlePlayPause}
-              disabled={isLoadingAudio || isTrackLoading || !previewUrl}
+              disabled={isLoadingAudio || isTrackLoading || !canAttemptPreview}
               style={[
                 styles.playBtn,
                 { backgroundColor: colors.primary },
-                (isLoadingAudio || isTrackLoading || !previewUrl) && styles.playBtnDisabled,
+                (isLoadingAudio || isTrackLoading || !canAttemptPreview) && styles.playBtnDisabled,
               ]}
               accessibilityRole="button"
               accessibilityLabel={isPlaying ? 'Pause preview' : 'Play preview'}

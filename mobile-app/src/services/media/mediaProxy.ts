@@ -81,6 +81,48 @@ export function mediaFetchUrl(kind: 'deezer' | 'itunes', query: Record<string, s
   return `/proxy/itunes?${params.toString()}`;
 }
 
+/**
+ * Prefer direct CDN playback. Proxy only when explicitly needed —
+ * Deezer signed MP3s play fine in the browser when the URL is fresh.
+ * (Stale signed URLs 403 and surface as NotSupportedError.)
+ */
+export function resolvePreviewPlaybackUrl(previewUrl?: string | null): string | undefined {
+  const uri = previewUrl?.trim();
+  if (!uri) return undefined;
+  return uri;
+}
+
+/**
+ * Deezer CDN preview links are short-lived signed URLs (~15 min).
+ * Cached song.previewUrl values often 403 after expiry.
+ */
+export function isPreviewUrlExpired(previewUrl?: string | null, skewSeconds = 60): boolean {
+  const uri = previewUrl?.trim();
+  if (!uri) return true;
+  const match =
+    uri.match(/hdnea=exp=(\d+)/i) ||
+    uri.match(/[?&]exp=(\d+)/i) ||
+    uri.match(/exp=(\d+)/i);
+  if (!match) {
+    // Unknown signed form — treat Deezer CDN links as unsafe to reuse.
+    try {
+      const host = new URL(uri).hostname.toLowerCase();
+      if (host.includes('dzcdn.net') || host.includes('deezer.com')) return true;
+    } catch {
+      return true;
+    }
+    return false;
+  }
+  const exp = Number(match[1]);
+  if (!Number.isFinite(exp)) return true;
+  return exp <= Math.floor(Date.now() / 1000) + skewSeconds;
+}
+
+/** Same-origin media proxy URL (optional fallback for stubborn CORS cases). */
+export function toProxiedMediaUrl(previewUrl: string): string {
+  return `/proxy/media?url=${encodeURIComponent(previewUrl)}`;
+}
+
 export async function fetchMediaJson<T>(
   kind: 'deezer' | 'itunes',
   query: Record<string, string>,
