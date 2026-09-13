@@ -49,18 +49,34 @@ export function AppScreen({
     [isDark],
   );
 
+  const contentSurfaceStyle = useMemo(
+    () => ({
+      backgroundColor: useCustomImage
+        ? 'transparent'
+        : (backgroundColor ?? colors.bgPrimary),
+      paddingTop: insets.top + spacing.md,
+      paddingBottom: insets.bottom + spacing.md,
+    }),
+    [
+      useCustomImage,
+      backgroundColor,
+      colors.bgPrimary,
+      insets.top,
+      insets.bottom,
+    ],
+  );
+
+  const overlayStyle = useMemo(
+    () => [styles.overlay, { backgroundColor: overlayColor }],
+    [overlayColor],
+  );
+
   const content = (
     <View
       style={[
         styles.container,
         padded ? styles.padded : styles.unpadded,
-        {
-          backgroundColor: useCustomImage
-            ? 'transparent'
-            : (backgroundColor ?? colors.bgPrimary),
-          paddingTop: insets.top + spacing.md,
-          paddingBottom: insets.bottom + spacing.md,
-        },
+        contentSurfaceStyle,
         style,
       ]}
     >
@@ -78,7 +94,7 @@ export function AppScreen({
       style={styles.container}
       resizeMode="cover"
     >
-      <View style={[styles.overlay, { backgroundColor: overlayColor }]} />
+      <View style={overlayStyle} />
       {content}
     </ImageBackground>
   );

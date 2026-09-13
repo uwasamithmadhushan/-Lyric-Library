@@ -78,10 +78,6 @@ export function SongPlayer({
   const deezerFullUrl = `https://www.deezer.com/search/${encodeURIComponent(query)}`;
   const youtubeFullUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
   const [livePreviewUrl, setLivePreviewUrl] = useState<string | undefined>(previewUrl);
-  const playbackUri = useMemo(
-    () => resolvePreviewPlaybackUrl(livePreviewUrl),
-    [livePreviewUrl],
-  );
   const canAttemptPreview = Boolean(previewUrl || (title && artistName));
 
   useEffect(() => {
