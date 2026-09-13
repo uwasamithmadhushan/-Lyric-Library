@@ -1,13 +1,30 @@
 # Lyric Library
 
-A React Native + Expo app for browsing artists, songs, and lyrics with a clean, wireframe-accurate UI.
+A React Native + Expo app for browsing artists, songs, and lyrics. Admin-synced catalog content lives in a shared backend database.
 
 ## Quick start
 
 ```bash
+# Mobile app
 npm install
 npx expo start
+
+# Shared backend (required for admin sync + newly added catalog)
+cd backend
+npm install
+npx prisma generate
+npx prisma db push
+npm run dev
+
+# Admin dashboard
+cd admin-dashboard
+npm install
+npm run dev
 ```
+
+Default admin login: `admin@lyriclibrary.local` / `Admin123!`
+
+See [backend/README.md](backend/README.md) and [admin-dashboard/README.md](admin-dashboard/README.md).
 
 For full setup details, see [SETUP.md](docs/SETUP.md).
 
