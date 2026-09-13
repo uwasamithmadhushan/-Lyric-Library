@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String   @default("Admin")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Artist {
+  id            String   @id @default(cuid())
+  externalApiId String?  @unique
+  name          String
+  imageUrl      String?
+  genre         String?
+  country       String?
+  description   String?
+  popularity    Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  songs         Song[]
+  albums        Album[]
+
+  @@index([name])
+}
+
+model Album {
+  id            String   @id @default(cuid())
+  externalApiId String?  @unique
+  title         String
+  artistId      String
+  artist        Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  artworkUrl    String?
+  releaseYear   Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  songs         Song[]
+
+  @@index([artistId])
+  @@index([title])
+}
+
+model Song {
+  id            String   @id @default(cuid())
+  externalApiId String?  @unique
+  title         String
+  artistId      String
+  artist        Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  albumId       String?
+  album         Album?   @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  albumTitle    String?
+  artworkUrl    String?
+  releaseDate   String?
+  releaseYear   Int?
+  duration      Int?
+  previewUrl    String?
+  genre         String?
+  lyricsText    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([artistId])
+  @@index([title])
+}

@@ -1,34 +1,16 @@
-# Dependencies
 node_modules/
-
-# Expo
 .expo/
 dist/
-web-build/
-
-# Native builds
-ios/
-android/
-
-# Env files
+coverage/
+*.log
 .env
 .env.local
-.env.production
-
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Testing
-coverage/
-
-# Build
+*.db
+*.db-journal
 *.tsbuildinfo
-
-#Docs
-docs/react-native-3-week-intern-implementation-plan.md
-docs/SPRINT_BACKLOG.md
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+admin-dashboard/dist
+mobile-app/.expo
+mobile-app/coverage
+.DS_Store
